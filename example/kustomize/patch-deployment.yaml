@@ -1,0 +1,9 @@
+apiVersion: core.gardener.cloud/v1
+kind: ControllerDeployment
+metadata:
+  name: duros-provider
+helm:
+  values:
+    image:
+      tag: latest
+      pullPolicy: IfNotPresent
