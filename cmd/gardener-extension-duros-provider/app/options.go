@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 
+	"github.com/metal-stack/gardener-extension-duros-provider/charts"
 	"github.com/metal-stack/gardener-extension-duros-provider/pkg/apis/durosprovider/install"
 	durosprovidercmd "github.com/metal-stack/gardener-extension-duros-provider/pkg/cmd"
 
@@ -17,6 +19,7 @@ import (
 
 	controllercmd "github.com/gardener/gardener/extensions/pkg/controller/cmd"
 	"github.com/gardener/gardener/extensions/pkg/util"
+	"github.com/gardener/gardener/pkg/client/kubernetes"
 	ghealth "github.com/gardener/gardener/pkg/healthz"
 	componentbaseconfig "k8s.io/component-base/config"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -90,6 +93,17 @@ func NewOptions() *Options {
 
 func (options *Options) run(ctx context.Context) error {
 	log.Info("starting " + ExtensionName)
+
+	ca, err := kubernetes.NewChartApplierForConfig(options.restOptions.Completed().Config)
+
+	if err != nil {
+		return fmt.Errorf("error creating chart-renderer: %w", err)
+	}
+	err = ca.ApplyFromEmbeddedFS(ctx, charts.InternalChart, filepath.Join("internal", "crds-storage"), "", "crds-storage")
+	if err != nil {
+		return fmt.Errorf("erorr applying crds-storage chart: %w", err)
+	}
+	log.Info("applied duros-storage crd")
 
 	util.ApplyClientConnectionConfigurationToRESTConfig(&componentbaseconfig.ClientConnectionConfiguration{
 		QPS:   100.0,
