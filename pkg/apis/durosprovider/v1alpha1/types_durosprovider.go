@@ -5,7 +5,8 @@ import (
 )
 
 const (
-	ShootDurosProviderResourceName = "extension-duros-provider"
+	ShootDurosProviderResourceName = "extension-duros-provider-shoot"
+	SeedDurosProviderResourceName  = "extension-duros-provider"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
