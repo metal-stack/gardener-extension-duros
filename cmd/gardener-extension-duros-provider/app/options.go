@@ -95,13 +95,13 @@ func (options *Options) run(ctx context.Context) error {
 	log.Info("starting " + ExtensionName)
 
 	ca, err := kubernetes.NewChartApplierForConfig(options.restOptions.Completed().Config)
-
 	if err != nil {
 		return fmt.Errorf("error creating chart-renderer: %w", err)
 	}
+
 	err = ca.ApplyFromEmbeddedFS(ctx, charts.InternalChart, filepath.Join("internal", "crds-storage"), "", "crds-storage")
 	if err != nil {
-		return fmt.Errorf("erorr applying crds-storage chart: %w", err)
+		return fmt.Errorf("error applying crds-storage chart: %w", err)
 	}
 	log.Info("applied duros-storage crd")
 
@@ -147,7 +147,7 @@ func (options *Options) run(ctx context.Context) error {
 	ctrlConfig.Apply(&controller.DefaultAddOptions.Config)
 
 	options.controllerOptions.Completed().Apply(&controller.DefaultAddOptions.ControllerOptions)
-	options.reconcileOptions.Completed().Apply(&controller.DefaultAddOptions.IgnoreOperationAnnotation)
+	options.reconcileOptions.Completed().Apply(&controller.DefaultAddOptions.IgnoreOperationAnnotation, &controller.DefaultAddOptions.ExtensionClass)
 	options.heartbeatOptions.Completed().Apply(&heartbeatcontroller.DefaultAddOptions)
 
 	if err := options.controllerSwitches.Completed().AddToManager(ctx, mgr); err != nil {

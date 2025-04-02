@@ -27,8 +27,6 @@ type DurosPartitionConfiguration struct {
 	AdminKey string `json:"adminKey"`
 	// AdminToken is the token used by the duros-controller to authenticate against the duros API
 	AdminToken string `json:"adminToken"`
-	// StorageClasses contain information on the storage classes that the duros-controller creates in the shoot cluster
-	StorageClasses []DurosSeedStorageClass `json:"storageClasses"`
 
 	// APIEndpoint is the endpoint used for control plane network communication.
 	APIEndpoint string `json:"apiEndpoint"`
@@ -38,15 +36,4 @@ type DurosPartitionConfiguration struct {
 	APICert string `json:"apiCert,omitempty"`
 	// APIKey is the key of the client cert to access the api endpoint
 	APIKey string `json:"apiKey,omitempty"`
-}
-
-type DurosSeedStorageClass struct {
-	// Name is the name of the storage class
-	Name string `json:"name"`
-	// ReplicaCount is the amount of replicas in the storage backend for this storage class
-	ReplicaCount int `json:"replicaCount"`
-	// Compression enables compression for this storage class
-	Compression bool `json:"compression"`
-	// Encryption defines a SC with client side encryption enabled
-	Encryption bool `json:"encryption"`
 }

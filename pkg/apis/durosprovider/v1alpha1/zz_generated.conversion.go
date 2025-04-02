@@ -34,63 +34,13 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
-	if err := s.AddGeneratedConversionFunc((*EgressRule)(nil), (*durosprovider.EgressRule)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha1_EgressRule_To_durosprovider_EgressRule(a.(*EgressRule), b.(*durosprovider.EgressRule), scope)
+	if err := s.AddGeneratedConversionFunc((*DurosSeedStorageClass)(nil), (*durosprovider.DurosSeedStorageClass)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_DurosSeedStorageClass_To_durosprovider_DurosSeedStorageClass(a.(*DurosSeedStorageClass), b.(*durosprovider.DurosSeedStorageClass), scope)
 	}); err != nil {
 		return err
 	}
-	if err := s.AddGeneratedConversionFunc((*durosprovider.EgressRule)(nil), (*EgressRule)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_durosprovider_EgressRule_To_v1alpha1_EgressRule(a.(*durosprovider.EgressRule), b.(*EgressRule), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*Firewall)(nil), (*durosprovider.Firewall)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha1_Firewall_To_durosprovider_Firewall(a.(*Firewall), b.(*durosprovider.Firewall), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*durosprovider.Firewall)(nil), (*Firewall)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_durosprovider_Firewall_To_v1alpha1_Firewall(a.(*durosprovider.Firewall), b.(*Firewall), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*FirewallStatus)(nil), (*durosprovider.FirewallStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha1_FirewallStatus_To_durosprovider_FirewallStatus(a.(*FirewallStatus), b.(*durosprovider.FirewallStatus), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*durosprovider.FirewallStatus)(nil), (*FirewallStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_durosprovider_FirewallStatus_To_v1alpha1_FirewallStatus(a.(*durosprovider.FirewallStatus), b.(*FirewallStatus), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*InfrastructureConfig)(nil), (*durosprovider.InfrastructureConfig)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha1_InfrastructureConfig_To_durosprovider_InfrastructureConfig(a.(*InfrastructureConfig), b.(*durosprovider.InfrastructureConfig), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*durosprovider.InfrastructureConfig)(nil), (*InfrastructureConfig)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_durosprovider_InfrastructureConfig_To_v1alpha1_InfrastructureConfig(a.(*durosprovider.InfrastructureConfig), b.(*InfrastructureConfig), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*InfrastructureStatus)(nil), (*durosprovider.InfrastructureStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha1_InfrastructureStatus_To_durosprovider_InfrastructureStatus(a.(*InfrastructureStatus), b.(*durosprovider.InfrastructureStatus), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*durosprovider.InfrastructureStatus)(nil), (*InfrastructureStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_durosprovider_InfrastructureStatus_To_v1alpha1_InfrastructureStatus(a.(*durosprovider.InfrastructureStatus), b.(*InfrastructureStatus), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*RateLimit)(nil), (*durosprovider.RateLimit)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha1_RateLimit_To_durosprovider_RateLimit(a.(*RateLimit), b.(*durosprovider.RateLimit), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*durosprovider.RateLimit)(nil), (*RateLimit)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_durosprovider_RateLimit_To_v1alpha1_RateLimit(a.(*durosprovider.RateLimit), b.(*RateLimit), scope)
+	if err := s.AddGeneratedConversionFunc((*durosprovider.DurosSeedStorageClass)(nil), (*DurosSeedStorageClass)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_durosprovider_DurosSeedStorageClass_To_v1alpha1_DurosSeedStorageClass(a.(*durosprovider.DurosSeedStorageClass), b.(*DurosSeedStorageClass), scope)
 	}); err != nil {
 		return err
 	}
@@ -98,8 +48,9 @@ func RegisterConversions(s *runtime.Scheme) error {
 }
 
 func autoConvert_v1alpha1_DurosProviderConfig_To_durosprovider_DurosProviderConfig(in *DurosProviderConfig, out *durosprovider.DurosProviderConfig, s conversion.Scope) error {
-	out.IsEncryptionDisabled = in.IsEncryptionDisabled
-	out.IsDefaultStorageClass = in.IsDefaultStorageClass
+	out.ProjectID = in.ProjectID
+	out.PartitionID = in.PartitionID
+	out.StorageClasses = *(*[]durosprovider.DurosSeedStorageClass)(unsafe.Pointer(&in.StorageClasses))
 	return nil
 }
 
@@ -109,8 +60,9 @@ func Convert_v1alpha1_DurosProviderConfig_To_durosprovider_DurosProviderConfig(i
 }
 
 func autoConvert_durosprovider_DurosProviderConfig_To_v1alpha1_DurosProviderConfig(in *durosprovider.DurosProviderConfig, out *DurosProviderConfig, s conversion.Scope) error {
-	out.IsEncryptionDisabled = in.IsEncryptionDisabled
-	out.IsDefaultStorageClass = in.IsDefaultStorageClass
+	out.ProjectID = in.ProjectID
+	out.PartitionID = in.PartitionID
+	out.StorageClasses = *(*[]DurosSeedStorageClass)(unsafe.Pointer(&in.StorageClasses))
 	return nil
 }
 
@@ -119,152 +71,30 @@ func Convert_durosprovider_DurosProviderConfig_To_v1alpha1_DurosProviderConfig(i
 	return autoConvert_durosprovider_DurosProviderConfig_To_v1alpha1_DurosProviderConfig(in, out, s)
 }
 
-func autoConvert_v1alpha1_EgressRule_To_durosprovider_EgressRule(in *EgressRule, out *durosprovider.EgressRule, s conversion.Scope) error {
-	out.NetworkID = in.NetworkID
-	out.IPs = *(*[]string)(unsafe.Pointer(&in.IPs))
+func autoConvert_v1alpha1_DurosSeedStorageClass_To_durosprovider_DurosSeedStorageClass(in *DurosSeedStorageClass, out *durosprovider.DurosSeedStorageClass, s conversion.Scope) error {
+	out.Name = in.Name
+	out.ReplicaCount = in.ReplicaCount
+	out.Compression = in.Compression
+	out.Encryption = in.Encryption
+	out.Default = in.Default
 	return nil
 }
 
-// Convert_v1alpha1_EgressRule_To_durosprovider_EgressRule is an autogenerated conversion function.
-func Convert_v1alpha1_EgressRule_To_durosprovider_EgressRule(in *EgressRule, out *durosprovider.EgressRule, s conversion.Scope) error {
-	return autoConvert_v1alpha1_EgressRule_To_durosprovider_EgressRule(in, out, s)
+// Convert_v1alpha1_DurosSeedStorageClass_To_durosprovider_DurosSeedStorageClass is an autogenerated conversion function.
+func Convert_v1alpha1_DurosSeedStorageClass_To_durosprovider_DurosSeedStorageClass(in *DurosSeedStorageClass, out *durosprovider.DurosSeedStorageClass, s conversion.Scope) error {
+	return autoConvert_v1alpha1_DurosSeedStorageClass_To_durosprovider_DurosSeedStorageClass(in, out, s)
 }
 
-func autoConvert_durosprovider_EgressRule_To_v1alpha1_EgressRule(in *durosprovider.EgressRule, out *EgressRule, s conversion.Scope) error {
-	out.NetworkID = in.NetworkID
-	out.IPs = *(*[]string)(unsafe.Pointer(&in.IPs))
+func autoConvert_durosprovider_DurosSeedStorageClass_To_v1alpha1_DurosSeedStorageClass(in *durosprovider.DurosSeedStorageClass, out *DurosSeedStorageClass, s conversion.Scope) error {
+	out.Name = in.Name
+	out.ReplicaCount = in.ReplicaCount
+	out.Compression = in.Compression
+	out.Encryption = in.Encryption
+	out.Default = in.Default
 	return nil
 }
 
-// Convert_durosprovider_EgressRule_To_v1alpha1_EgressRule is an autogenerated conversion function.
-func Convert_durosprovider_EgressRule_To_v1alpha1_EgressRule(in *durosprovider.EgressRule, out *EgressRule, s conversion.Scope) error {
-	return autoConvert_durosprovider_EgressRule_To_v1alpha1_EgressRule(in, out, s)
-}
-
-func autoConvert_v1alpha1_Firewall_To_durosprovider_Firewall(in *Firewall, out *durosprovider.Firewall, s conversion.Scope) error {
-	out.Size = in.Size
-	out.Image = in.Image
-	out.Networks = *(*[]string)(unsafe.Pointer(&in.Networks))
-	out.RateLimits = *(*[]durosprovider.RateLimit)(unsafe.Pointer(&in.RateLimits))
-	out.EgressRules = *(*[]durosprovider.EgressRule)(unsafe.Pointer(&in.EgressRules))
-	out.LogAcceptedConnections = in.LogAcceptedConnections
-	out.ControllerVersion = in.ControllerVersion
-	out.AutoUpdateMachineImage = in.AutoUpdateMachineImage
-	return nil
-}
-
-// Convert_v1alpha1_Firewall_To_durosprovider_Firewall is an autogenerated conversion function.
-func Convert_v1alpha1_Firewall_To_durosprovider_Firewall(in *Firewall, out *durosprovider.Firewall, s conversion.Scope) error {
-	return autoConvert_v1alpha1_Firewall_To_durosprovider_Firewall(in, out, s)
-}
-
-func autoConvert_durosprovider_Firewall_To_v1alpha1_Firewall(in *durosprovider.Firewall, out *Firewall, s conversion.Scope) error {
-	out.Size = in.Size
-	out.Image = in.Image
-	out.Networks = *(*[]string)(unsafe.Pointer(&in.Networks))
-	out.RateLimits = *(*[]RateLimit)(unsafe.Pointer(&in.RateLimits))
-	out.EgressRules = *(*[]EgressRule)(unsafe.Pointer(&in.EgressRules))
-	out.LogAcceptedConnections = in.LogAcceptedConnections
-	out.ControllerVersion = in.ControllerVersion
-	out.AutoUpdateMachineImage = in.AutoUpdateMachineImage
-	return nil
-}
-
-// Convert_durosprovider_Firewall_To_v1alpha1_Firewall is an autogenerated conversion function.
-func Convert_durosprovider_Firewall_To_v1alpha1_Firewall(in *durosprovider.Firewall, out *Firewall, s conversion.Scope) error {
-	return autoConvert_durosprovider_Firewall_To_v1alpha1_Firewall(in, out, s)
-}
-
-func autoConvert_v1alpha1_FirewallStatus_To_durosprovider_FirewallStatus(in *FirewallStatus, out *durosprovider.FirewallStatus, s conversion.Scope) error {
-	out.MachineID = in.MachineID
-	return nil
-}
-
-// Convert_v1alpha1_FirewallStatus_To_durosprovider_FirewallStatus is an autogenerated conversion function.
-func Convert_v1alpha1_FirewallStatus_To_durosprovider_FirewallStatus(in *FirewallStatus, out *durosprovider.FirewallStatus, s conversion.Scope) error {
-	return autoConvert_v1alpha1_FirewallStatus_To_durosprovider_FirewallStatus(in, out, s)
-}
-
-func autoConvert_durosprovider_FirewallStatus_To_v1alpha1_FirewallStatus(in *durosprovider.FirewallStatus, out *FirewallStatus, s conversion.Scope) error {
-	out.MachineID = in.MachineID
-	return nil
-}
-
-// Convert_durosprovider_FirewallStatus_To_v1alpha1_FirewallStatus is an autogenerated conversion function.
-func Convert_durosprovider_FirewallStatus_To_v1alpha1_FirewallStatus(in *durosprovider.FirewallStatus, out *FirewallStatus, s conversion.Scope) error {
-	return autoConvert_durosprovider_FirewallStatus_To_v1alpha1_FirewallStatus(in, out, s)
-}
-
-func autoConvert_v1alpha1_InfrastructureConfig_To_durosprovider_InfrastructureConfig(in *InfrastructureConfig, out *durosprovider.InfrastructureConfig, s conversion.Scope) error {
-	if err := Convert_v1alpha1_Firewall_To_durosprovider_Firewall(&in.Firewall, &out.Firewall, s); err != nil {
-		return err
-	}
-	out.PartitionID = in.PartitionID
-	out.ProjectID = in.ProjectID
-	return nil
-}
-
-// Convert_v1alpha1_InfrastructureConfig_To_durosprovider_InfrastructureConfig is an autogenerated conversion function.
-func Convert_v1alpha1_InfrastructureConfig_To_durosprovider_InfrastructureConfig(in *InfrastructureConfig, out *durosprovider.InfrastructureConfig, s conversion.Scope) error {
-	return autoConvert_v1alpha1_InfrastructureConfig_To_durosprovider_InfrastructureConfig(in, out, s)
-}
-
-func autoConvert_durosprovider_InfrastructureConfig_To_v1alpha1_InfrastructureConfig(in *durosprovider.InfrastructureConfig, out *InfrastructureConfig, s conversion.Scope) error {
-	if err := Convert_durosprovider_Firewall_To_v1alpha1_Firewall(&in.Firewall, &out.Firewall, s); err != nil {
-		return err
-	}
-	out.PartitionID = in.PartitionID
-	out.ProjectID = in.ProjectID
-	return nil
-}
-
-// Convert_durosprovider_InfrastructureConfig_To_v1alpha1_InfrastructureConfig is an autogenerated conversion function.
-func Convert_durosprovider_InfrastructureConfig_To_v1alpha1_InfrastructureConfig(in *durosprovider.InfrastructureConfig, out *InfrastructureConfig, s conversion.Scope) error {
-	return autoConvert_durosprovider_InfrastructureConfig_To_v1alpha1_InfrastructureConfig(in, out, s)
-}
-
-func autoConvert_v1alpha1_InfrastructureStatus_To_durosprovider_InfrastructureStatus(in *InfrastructureStatus, out *durosprovider.InfrastructureStatus, s conversion.Scope) error {
-	if err := Convert_v1alpha1_FirewallStatus_To_durosprovider_FirewallStatus(&in.Firewall, &out.Firewall, s); err != nil {
-		return err
-	}
-	return nil
-}
-
-// Convert_v1alpha1_InfrastructureStatus_To_durosprovider_InfrastructureStatus is an autogenerated conversion function.
-func Convert_v1alpha1_InfrastructureStatus_To_durosprovider_InfrastructureStatus(in *InfrastructureStatus, out *durosprovider.InfrastructureStatus, s conversion.Scope) error {
-	return autoConvert_v1alpha1_InfrastructureStatus_To_durosprovider_InfrastructureStatus(in, out, s)
-}
-
-func autoConvert_durosprovider_InfrastructureStatus_To_v1alpha1_InfrastructureStatus(in *durosprovider.InfrastructureStatus, out *InfrastructureStatus, s conversion.Scope) error {
-	if err := Convert_durosprovider_FirewallStatus_To_v1alpha1_FirewallStatus(&in.Firewall, &out.Firewall, s); err != nil {
-		return err
-	}
-	return nil
-}
-
-// Convert_durosprovider_InfrastructureStatus_To_v1alpha1_InfrastructureStatus is an autogenerated conversion function.
-func Convert_durosprovider_InfrastructureStatus_To_v1alpha1_InfrastructureStatus(in *durosprovider.InfrastructureStatus, out *InfrastructureStatus, s conversion.Scope) error {
-	return autoConvert_durosprovider_InfrastructureStatus_To_v1alpha1_InfrastructureStatus(in, out, s)
-}
-
-func autoConvert_v1alpha1_RateLimit_To_durosprovider_RateLimit(in *RateLimit, out *durosprovider.RateLimit, s conversion.Scope) error {
-	out.NetworkID = in.NetworkID
-	out.RateLimit = in.RateLimit
-	return nil
-}
-
-// Convert_v1alpha1_RateLimit_To_durosprovider_RateLimit is an autogenerated conversion function.
-func Convert_v1alpha1_RateLimit_To_durosprovider_RateLimit(in *RateLimit, out *durosprovider.RateLimit, s conversion.Scope) error {
-	return autoConvert_v1alpha1_RateLimit_To_durosprovider_RateLimit(in, out, s)
-}
-
-func autoConvert_durosprovider_RateLimit_To_v1alpha1_RateLimit(in *durosprovider.RateLimit, out *RateLimit, s conversion.Scope) error {
-	out.NetworkID = in.NetworkID
-	out.RateLimit = in.RateLimit
-	return nil
-}
-
-// Convert_durosprovider_RateLimit_To_v1alpha1_RateLimit is an autogenerated conversion function.
-func Convert_durosprovider_RateLimit_To_v1alpha1_RateLimit(in *durosprovider.RateLimit, out *RateLimit, s conversion.Scope) error {
-	return autoConvert_durosprovider_RateLimit_To_v1alpha1_RateLimit(in, out, s)
+// Convert_durosprovider_DurosSeedStorageClass_To_v1alpha1_DurosSeedStorageClass is an autogenerated conversion function.
+func Convert_durosprovider_DurosSeedStorageClass_To_v1alpha1_DurosSeedStorageClass(in *durosprovider.DurosSeedStorageClass, out *DurosSeedStorageClass, s conversion.Scope) error {
+	return autoConvert_durosprovider_DurosSeedStorageClass_To_v1alpha1_DurosSeedStorageClass(in, out, s)
 }

@@ -4,29 +4,29 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
+
+	firewallv1 "github.com/metal-stack/firewall-controller/v2/api/v1"
 
 	"github.com/gardener/gardener/extensions/pkg/controller/extension"
 
-	"github.com/gardener/gardener/extensions/pkg/controller"
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/gardener/gardener/pkg/client/kubernetes"
 	"github.com/gardener/gardener/pkg/extensions"
 	"github.com/gardener/gardener/pkg/utils/managedresources"
 
-	apisdurosprovider "github.com/metal-stack/gardener-extension-duros-provider/pkg/apis/durosprovider"
-
 	"github.com/go-logr/logr"
 	"github.com/metal-stack/gardener-extension-duros-provider/pkg/apis/config"
 	"github.com/metal-stack/gardener-extension-duros-provider/pkg/apis/durosprovider/v1alpha1"
+	"github.com/metal-stack/gardener-extension-duros-provider/pkg/imagevector"
 	"k8s.io/apimachinery/pkg/api/resource"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/rest"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	durosv1 "github.com/metal-stack/duros-controller/api/v1"
@@ -34,10 +34,14 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networkv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
-	pullPolicy corev1.PullPolicy = corev1.PullIfNotPresent
+	pullPolicy                  corev1.PullPolicy = corev1.PullIfNotPresent
+	clusterWideNetworkPolicyCRD string            = "clusterwidenetworkpolicies.metal-stack.io"
 )
 
 // NewActuator returns an actuator responsible for Extension resources.
@@ -57,18 +61,12 @@ type actuator struct {
 
 // Reconcile the Extension resource.
 func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, ex *extensionsv1alpha1.Extension) error {
-	// get cluster of extension and decode infrastructure config
-	cluster, err := controller.GetCluster(ctx, a.client, ex.GetNamespace())
+	cluster, err := extensionscontroller.GetCluster(ctx, a.client, ex.GetNamespace())
 	if err != nil {
 		return fmt.Errorf("could not get cluster: %w", err)
 	}
-	infrastructureConfig := &apisdurosprovider.InfrastructureConfig{}
-	if _, _, err := a.decoder.Decode(cluster.Shoot.Spec.Provider.InfrastructureConfig.Raw, nil, infrastructureConfig); err != nil {
-		return fmt.Errorf("could not decode providerConfig of infrastructure %w", err)
-	}
 
-	// decode provider config
-	durosproviderConfig := &apisdurosprovider.DurosProviderConfig{}
+	durosproviderConfig := &v1alpha1.DurosProviderConfig{}
 	if ex.Spec.ProviderConfig != nil {
 		_, _, err := a.decoder.Decode(ex.Spec.ProviderConfig.Raw, nil, durosproviderConfig)
 		if err != nil {
@@ -76,63 +74,155 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, ex *extension
 		}
 	}
 
-	partitionConfig, ok := a.config.PartitionConfig[infrastructureConfig.PartitionID]
-	if !ok {
+	partitionCfg := a.config.PartitionConfig[durosproviderConfig.PartitionID]
 
-		log.Info("skipping duros storage deployment because no storage configuration found for partition", "partition", infrastructureConfig.PartitionID)
-		return nil
+	crdClientSet, err := clientset.NewForConfig(&rest.Config{})
+	if err != nil {
+		return fmt.Errorf("could not create crd-client: %w", err)
 	}
 
-	controlPlaneObjects, err := a.controlPlaneObjects(infrastructureConfig.PartitionID, cluster, partitionConfig, v1alpha1.DurosProviderConfig(*durosproviderConfig))
+	crdList, err := crdClientSet.ApiextensionsV1().CustomResourceDefinitions().List(ctx, v1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("unable to list crds: %w", err)
+	}
+
+	// test for metal-stack crd in order to create firewall policy
+	for _, crd := range crdList.Items {
+		if crd.GetName() == clusterWideNetworkPolicyCRD {
+			cp := &firewallv1.ClusterwideNetworkPolicy{ObjectMeta: v1.ObjectMeta{
+				Name:      "allow-to-storage",
+				Namespace: "firewall",
+			},
+			}
+			_, err = controllerutil.CreateOrUpdate(ctx, a.client, cp, func() error {
+				var to []networkv1.IPBlock
+				for _, e := range partitionCfg.Endpoints {
+					withoutPort := strings.Split(e, ":")
+					to = append(to, networkv1.IPBlock{
+						CIDR: withoutPort[0] + "/32",
+					})
+				}
+
+				port443 := intstr.FromInt(443)
+				port4420 := intstr.FromInt(4420)
+				port8009 := intstr.FromInt(8009)
+				tcp := corev1.ProtocolTCP
+
+				cp.Spec.Egress = []firewallv1.EgressRule{
+					{
+						Ports: []networkv1.NetworkPolicyPort{
+							{
+								Port:     &port443,
+								Protocol: &tcp,
+							},
+							{
+								Port:     &port4420,
+								Protocol: &tcp,
+							},
+							{
+								Port:     &port8009,
+								Protocol: &tcp,
+							},
+						},
+					},
+				}
+				return nil
+			})
+			if err != nil {
+				return fmt.Errorf("unable to deploy clusterwide network policy for duros storage into firewall namespace %w", err)
+			}
+		}
+	}
+
+	controllerObjectsSeed, err := a.GetControllerObjectsForSeed(cluster, partitionCfg, *durosproviderConfig)
 	if err != nil {
 		return err
 	}
+	durosObjectsSeed := a.GetDurusObjectsForSeed(*durosproviderConfig)
 	shootControlPlaneObjects := a.shootControlPlaneObjects()
 
-	controlPlaneResources, err := managedresources.NewRegistry(kubernetes.SeedScheme, kubernetes.SeedCodec, kubernetes.SeedSerializer).AddAllAndSerialize(controlPlaneObjects...)
-	if err != nil {
-		return err
-	}
-	shootControlPlaneResources, err := managedresources.NewRegistry(kubernetes.SeedScheme, kubernetes.SeedCodec, kubernetes.SeedSerializer).AddAllAndSerialize(shootControlPlaneObjects...)
+	controllerResourcesSeed, err := managedresources.NewRegistry(kubernetes.SeedScheme, kubernetes.SeedCodec, kubernetes.SeedSerializer).AddAllAndSerialize(controllerObjectsSeed...)
 	if err != nil {
 		return err
 	}
 
-	err = managedresources.CreateForSeed(ctx, a.client, ex.Namespace, v1alpha1.SeedDurosProviderResourceName, false, controlPlaneResources)
+	durosResourcesSeed, err := managedresources.NewRegistry(kubernetes.SeedScheme, kubernetes.SeedCodec, kubernetes.SeedSerializer).AddAllAndSerialize(durosObjectsSeed...)
 	if err != nil {
 		return err
 	}
-	log.Info("managed resource created succesfully", "name", v1alpha1.SeedDurosProviderResourceName)
 
-	err = managedresources.CreateForSeed(ctx, a.client, cluster.Shoot.GetNamespace(), v1alpha1.ShootDurosProviderResourceName, false, shootControlPlaneResources)
+	shootControlPlaneResources, err := managedresources.NewRegistry(kubernetes.ShootScheme, kubernetes.ShootCodec, kubernetes.ShootSerializer).AddAllAndSerialize(shootControlPlaneObjects...)
 	if err != nil {
 		return err
 	}
-	log.Info("managed resource created succesfully", "name", v1alpha1.ShootDurosProviderResourceName)
+
+	err = managedresources.CreateForSeed(ctx, a.client, ex.Namespace, v1alpha1.SeedDurosControllerResourceName, false, controllerResourcesSeed)
+	if err != nil {
+		return err
+	}
+	log.Info("managed resource created successfully", "name", v1alpha1.SeedDurosControllerResourceName)
+
+	err = managedresources.CreateForSeed(ctx, a.client, ex.Namespace, v1alpha1.SeedDurosResourceName, false, durosResourcesSeed)
+	if err != nil {
+		return err
+	}
+	log.Info("managed resource created successfully", "name", v1alpha1.SeedDurosResourceName)
+
+	err = managedresources.CreateForShoot(ctx, a.client, cluster.Shoot.GetNamespace(), v1alpha1.ShootDurosResourceName, "duros-extension", false, shootControlPlaneResources)
+	if err != nil {
+		return err
+	}
+	log.Info("managed resource created successfully", "name", v1alpha1.ShootDurosResourceName)
 
 	return nil
 }
 
 // Delete the Extension resource.
 func (a *actuator) Delete(ctx context.Context, log logr.Logger, ex *extensionsv1alpha1.Extension) error {
-	log.Info("deleting managed resource")
-	err := managedresources.Delete(ctx, a.client, ex.Namespace, v1alpha1.ShootDurosProviderResourceName, false)
+	err := deleteDurosCustomResource(ctx, a.client, ex.Namespace)
+	if err != nil {
+		//TODO reque
+	}
 
+	err = managedresources.DeleteForSeed(ctx, a.client, ex.Namespace, v1alpha1.SeedDurosControllerResourceName)
 	if err != nil {
 		return err
 	}
 
-	timeoutCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
-	defer cancel()
-
-	err = managedresources.WaitUntilDeleted(timeoutCtx, a.client, ex.Namespace, v1alpha1.ShootDurosProviderResourceName)
+	err = managedresources.DeleteForShoot(ctx, a.client, "kube-system", v1alpha1.ShootDurosResourceName)
 	if err != nil {
 		return err
 	}
-
-	log.Info("successfully deleted managed resource")
 
 	return nil
+}
+
+func deleteDurosCustomResource(ctx context.Context, c client.Client, namespace string) error {
+	durosResource := durosv1.Duros{
+		ObjectMeta: v1.ObjectMeta{
+			Name: "duros-controller",
+		},
+	}
+	err := c.Get(ctx, client.ObjectKeyFromObject(&durosResource), &durosResource)
+	if err != nil && !apierrors.IsNotFound(err) {
+		return nil
+	}
+
+	if err != nil {
+		return fmt.Errorf("unable to get duros-CR: %w", err)
+	}
+
+	if !durosResource.DeletionTimestamp.IsZero() {
+		return fmt.Errorf("duros-controller still cleaning up, requeue...")
+	}
+
+	err = managedresources.DeleteForSeed(ctx, c, namespace, v1alpha1.SeedDurosResourceName)
+	if err != nil {
+		return fmt.Errorf("unable to delete duros-CR: %w", err)
+	}
+
+	return fmt.Errorf("initializing deletion process of duros-CR, requeue...")
+
 }
 
 // ForceDelete the Extension resource
@@ -150,7 +240,7 @@ func (a *actuator) Migrate(ctx context.Context, log logr.Logger, ex *extensionsv
 	return nil
 }
 
-func (a *actuator) controlPlaneObjects(projectId string, cluster *extensions.Cluster, partitionCfg config.DurosPartitionConfiguration, durosproviderCfg v1alpha1.DurosProviderConfig) ([]client.Object, error) {
+func (a *actuator) GetControllerObjectsForSeed(cluster *extensions.Cluster, partitionCfg config.DurosPartitionConfiguration, durosproviderCfg v1alpha1.DurosProviderConfig) ([]client.Object, error) {
 	serviceAccount := corev1.ServiceAccount{
 		ObjectMeta: v1.ObjectMeta{
 			Name: "duros-controller",
@@ -230,6 +320,11 @@ func (a *actuator) controlPlaneObjects(projectId string, cluster *extensions.Clu
 		durosControllerArgs = append(durosControllerArgs, "-api-key=/duros/api-key")
 	}
 
+	durosControllerImage, err := imagevector.ImageVector().FindImage("duros-controller")
+	if err != nil {
+		return nil, fmt.Errorf("failed to find csi-attacher image: %w", err)
+	}
+
 	deployment := appsv1.Deployment{
 		ObjectMeta: v1.ObjectMeta{
 			Name: "duros-controller",
@@ -264,6 +359,7 @@ func (a *actuator) controlPlaneObjects(projectId string, cluster *extensions.Clu
 						{
 							Name:            "duros-controller",
 							Args:            durosControllerArgs,
+							Image:           durosControllerImage.String(),
 							ImagePullPolicy: pullPolicy,
 							Resources: corev1.ResourceRequirements{
 								Limits: corev1.ResourceList{
@@ -382,32 +478,6 @@ func (a *actuator) controlPlaneObjects(projectId string, cluster *extensions.Clu
 		},
 	}
 
-	var scs []durosv1.StorageClass
-	for _, sc := range partitionCfg.StorageClasses {
-		if !durosproviderCfg.IsEncryptionDisabled {
-			if sc.Encryption {
-				continue
-			}
-		}
-
-		scs = append(scs, durosv1.StorageClass{
-			Name:         sc.Name,
-			ReplicaCount: sc.ReplicaCount,
-			Compression:  sc.Compression,
-			Encryption:   sc.Encryption,
-			Default:      durosproviderCfg.IsDefaultStorageClass,
-		})
-	}
-	durosStorage := durosv1.Duros{
-		ObjectMeta: v1.ObjectMeta{
-			Name: "duros-controller",
-		},
-		Spec: durosv1.DurosSpec{
-			MetalProjectID: projectId,
-			StorageClasses: scs,
-		},
-	}
-
 	objects := []client.Object{
 		&serviceAccount,
 		&role,
@@ -415,10 +485,37 @@ func (a *actuator) controlPlaneObjects(projectId string, cluster *extensions.Clu
 		&secret,
 		&deployment,
 		&networkPolicy,
-		&durosStorage,
 	}
 
 	return objects, nil
+}
+
+func (a *actuator) GetDurusObjectsForSeed(durosproviderCfg v1alpha1.DurosProviderConfig) []client.Object {
+	var scs []durosv1.StorageClass
+	for _, sc := range durosproviderCfg.StorageClasses {
+		scs = append(scs, durosv1.StorageClass{
+			Name:         sc.Name,
+			ReplicaCount: sc.ReplicaCount,
+			Compression:  sc.Compression,
+			Encryption:   sc.Encryption,
+			Default:      sc.Default,
+		})
+	}
+	durosStorage := durosv1.Duros{
+		ObjectMeta: v1.ObjectMeta{
+			Name: "duros-controller",
+		},
+		Spec: durosv1.DurosSpec{
+			MetalProjectID: durosproviderCfg.ProjectID,
+			StorageClasses: scs,
+		},
+	}
+
+	objects := []client.Object{
+		&durosStorage,
+	}
+
+	return objects
 }
 
 func (a *actuator) shootControlPlaneObjects() []client.Object {
