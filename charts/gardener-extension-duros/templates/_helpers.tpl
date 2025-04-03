@@ -1,5 +1,5 @@
 {{- define "name" -}}
-gardener-extension-duros-provider
+gardener-extension-duros
 {{- end -}}
 
 {{- define "labels.app.key" -}}

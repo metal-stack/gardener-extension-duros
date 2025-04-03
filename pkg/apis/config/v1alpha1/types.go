@@ -36,4 +36,37 @@ type DurosPartitionConfiguration struct {
 	APICert string `json:"apiCert,omitempty"`
 	// APIKey is the key of the client cert to access the api endpoint
 	APIKey string `json:"apiKey,omitempty"`
+
+	// QoSPolicies define quality of service for the duros storage and can be referenced by storageclasses.
+	QoSPolicies []QoSPolicy `json:"qosPolicies"`
 }
+
+// QoSPolicy defines a quality of service for the duros storage and can be reference by storageclasses.
+type QoSPolicy struct {
+	// Name is the name of the policy.
+	Name string `json:"name"`
+	// Type is the type of the policy. Different types have different units in the limit.
+	Type QoSType `json:"qosType"`
+	// Limit is the limit of the policy.
+	//
+	// Limit of 0 means no rate limit.
+	// IOPS in increments of 256 IOPS and Bandwidth in increments of 1 MB/s.
+	Limit ReadWriteLimit `json:"readWriteLimit"`
+}
+
+// ReadWriteLimit defines limits of the policy.
+type ReadWriteLimit struct {
+	// ReadLimit defines the read operation limit.
+	ReadLimit string `json:"readLimit"`
+	// WriteLimit defines the write operation limit.
+	WriteLimit string `json:"writeLimit"`
+}
+
+// QoSType defines the type of the policy. Can be Bandwidth, IOPS or IOPSPerGB.
+type QoSType int
+
+const (
+	Bandwidth QoSType = iota
+	IOPS
+	IOPSPerGB
+)

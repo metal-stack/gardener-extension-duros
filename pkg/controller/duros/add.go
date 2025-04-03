@@ -1,4 +1,4 @@
-package durosprovider
+package duros
 
 import (
 	"context"
@@ -8,16 +8,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	"github.com/metal-stack/gardener-extension-duros-provider/pkg/apis/config"
+	"github.com/metal-stack/gardener-extension-duros/pkg/apis/config"
 )
 
 const (
 	// Type is the type of Extension resource.
-	Type = "duros-provider"
+	Type = "duros"
 	// ControllerName is the name of the registry cache service controller.
-	ControllerName = "duros-provider"
+	ControllerName = "duros"
 	// FinalizerSuffix is the finalizer suffix for the registry cache service controller.
-	FinalizerSuffix = "duros-provider"
+	FinalizerSuffix = "duros"
 )
 
 var (

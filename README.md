@@ -1,1 +1,1 @@
-# gardener-extension-duros-provider
+# gardener-extension-duros

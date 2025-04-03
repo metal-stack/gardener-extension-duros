@@ -12,8 +12,8 @@ const (
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// DurosProviderConfiguration configuration resource
-type DurosProviderConfig struct {
+// DurosConfiguration configuration resource
+type DurosConfig struct {
 	metav1.TypeMeta `json:",inline"`
 
 	// ProjectID is the id of the project
@@ -37,4 +37,6 @@ type DurosSeedStorageClass struct {
 	Encryption bool `json:"encryption"`
 	// Default is a flag to set the storage class as default
 	Default bool `json:"default"`
+	// QoS is the qualtiy of service policy which is used by the storageclass
+	QoS string `json:"qos"`
 }

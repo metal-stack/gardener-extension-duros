@@ -8,12 +8,12 @@ import (
 	runtimelog "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-var log = runtimelog.Log.WithName("gardener-extension-duros-provider")
+var log = runtimelog.Log.WithName("gardener-extension-duros")
 
 func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 	options := NewOptions()
 	cmd := &cobra.Command{
-		Use:           "gardener-extension-duros-provider",
+		Use:           "gardener-extension-duros",
 		Short:         "provides duros storage for shoot clusters",
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {

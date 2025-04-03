@@ -1,4 +1,4 @@
-package durosprovider
+package v1alpha1
 
 import (
 	"k8s.io/apimachinery/pkg/runtime"
@@ -6,10 +6,10 @@ import (
 )
 
 // GroupName is the group name use in this package
-const GroupName = "duros-provider.metal.extensions.gardener.cloud"
+const GroupName = "duros.metal.extensions.gardener.cloud"
 
 // SchemeGroupVersion is group version used to register these objects
-var SchemeGroupVersion = schema.GroupVersion{Group: GroupName, Version: runtime.APIVersionInternal}
+var SchemeGroupVersion = schema.GroupVersion{Group: GroupName, Version: "v1alpha1"}
 
 // Kind takes an unqualified kind and returns a Group qualified GroupKind
 func Kind(kind string) schema.GroupKind {
@@ -23,15 +23,23 @@ func Resource(resource string) schema.GroupResource {
 
 var (
 	// SchemeBuilder used to register the Shoot resource.
-	SchemeBuilder = runtime.NewSchemeBuilder(addKnownTypes)
+	SchemeBuilder      runtime.SchemeBuilder
+	localSchemeBuilder = &SchemeBuilder
 	// AddToScheme is a pointer to SchemeBuilder.AddToScheme.
-	AddToScheme = SchemeBuilder.AddToScheme
+	AddToScheme = localSchemeBuilder.AddToScheme
 )
+
+func init() {
+	// We only register manually written functions here. The registration of the
+	// generated functions takes place in the generated files. The separation
+	// makes the code compile even when the generated files are missing.
+	localSchemeBuilder.Register(addKnownTypes)
+}
 
 // Adds the list of known types to api.Scheme.
 func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
-		&DurosProviderConfig{},
+		&DurosConfig{},
 	)
 	return nil
 }

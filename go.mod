@@ -1,4 +1,4 @@
-module github.com/metal-stack/gardener-extension-duros-provider
+module github.com/metal-stack/gardener-extension-duros
 
 go 1.24
 

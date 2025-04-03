@@ -13,10 +13,10 @@ spec:
   secretBindingName: local # dummy, doesn't contain any credentials
   region: local
   extensions:
-    - type: duros-provider
+    - type: duros
       providerConfig:
-        apiVersion: duros-provider.metal.extensions.gardener.cloud/v1alpha1
-        kind: DurosProviderConfig
+        apiVersion: duros.metal.extensions.gardener.cloud/v1alpha1
+        kind: DurosConfig
         # Your configuration here
         # projectID: UUID
         # partitionID: ID

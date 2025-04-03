@@ -6,16 +6,18 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/metal-stack/gardener-extension-duros-provider/charts"
-	"github.com/metal-stack/gardener-extension-duros-provider/pkg/apis/durosprovider/install"
-	durosprovidercmd "github.com/metal-stack/gardener-extension-duros-provider/pkg/cmd"
+	durosv1 "github.com/metal-stack/duros-controller/api/v1"
+	"github.com/metal-stack/gardener-extension-duros/charts"
+	"github.com/metal-stack/gardener-extension-duros/pkg/apis/duros/install"
+	duroscmd "github.com/metal-stack/gardener-extension-duros/pkg/cmd"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	heartbeatcontroller "github.com/gardener/gardener/extensions/pkg/controller/heartbeat"
 	heartbeatcmd "github.com/gardener/gardener/extensions/pkg/controller/heartbeat/cmd"
-	controller "github.com/metal-stack/gardener-extension-duros-provider/pkg/controller/duros-provider"
+	controller "github.com/metal-stack/gardener-extension-duros/pkg/controller/duros"
 
 	controllercmd "github.com/gardener/gardener/extensions/pkg/controller/cmd"
 	"github.com/gardener/gardener/extensions/pkg/util"
@@ -27,28 +29,28 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
-// var log = runtimelog.Log.WithName("gardener-extension-duros-provider")
+const ExtensionName = "extension-duros"
 
-const ExtensionName = "extension-duros-provider"
+var MgrScheme runtime.Scheme
 
 type Options struct {
-	generalOptions       *controllercmd.GeneralOptions
-	durosProviderOptions *durosprovidercmd.AuthOptions
-	restOptions          *controllercmd.RESTOptions
-	managerOptions       *controllercmd.ManagerOptions
-	controllerOptions    *controllercmd.ControllerOptions
-	heartbeatOptions     *heartbeatcmd.Options
-	healthOptions        *controllercmd.ControllerOptions
-	controllerSwitches   *controllercmd.SwitchOptions
-	reconcileOptions     *controllercmd.ReconcilerOptions
-	optionAggregator     controllercmd.OptionAggregator
+	generalOptions     *controllercmd.GeneralOptions
+	durosOptions       *duroscmd.AuthOptions
+	restOptions        *controllercmd.RESTOptions
+	managerOptions     *controllercmd.ManagerOptions
+	controllerOptions  *controllercmd.ControllerOptions
+	heartbeatOptions   *heartbeatcmd.Options
+	healthOptions      *controllercmd.ControllerOptions
+	controllerSwitches *controllercmd.SwitchOptions
+	reconcileOptions   *controllercmd.ReconcilerOptions
+	optionAggregator   controllercmd.OptionAggregator
 }
 
 func NewOptions() *Options {
 	options := &Options{
-		generalOptions:       &controllercmd.GeneralOptions{},
-		durosProviderOptions: &durosprovidercmd.AuthOptions{},
-		restOptions:          &controllercmd.RESTOptions{},
+		generalOptions: &controllercmd.GeneralOptions{},
+		durosOptions:   &duroscmd.AuthOptions{},
+		restOptions:    &controllercmd.RESTOptions{},
 		managerOptions: &controllercmd.ManagerOptions{
 			LeaderElection:          true,
 			LeaderElectionID:        controllercmd.LeaderElectionNameID(ExtensionName),
@@ -72,13 +74,13 @@ func NewOptions() *Options {
 			// This is a default value.
 			MaxConcurrentReconciles: 5,
 		},
-		controllerSwitches: durosprovidercmd.ControllerSwitchOptions(),
+		controllerSwitches: duroscmd.ControllerSwitchOptions(),
 		reconcileOptions:   &controllercmd.ReconcilerOptions{},
 	}
 
 	options.optionAggregator = controllercmd.NewOptionAggregator(
 		options.generalOptions,
-		options.durosProviderOptions,
+		options.durosOptions,
 		options.restOptions,
 		options.managerOptions,
 		options.controllerOptions,
@@ -90,6 +92,12 @@ func NewOptions() *Options {
 
 	return options
 }
+
+// // GroupName is the group name use in this package
+// const GroupName = "duros.metal.extensions.gardener.cloud"
+//
+// // SchemeGroupVersion is group version used to register these objects
+// var SchemeGroupVersion = schema.GroupVersion{Group: GroupName, Version: runtime.APIVersionInternal}
 
 func (options *Options) run(ctx context.Context) error {
 	log.Info("starting " + ExtensionName)
@@ -131,6 +139,15 @@ func (options *Options) run(ctx context.Context) error {
 	}
 	log.Info("completed rest-options")
 
+	err = durosv1.AddToScheme(mgr.GetScheme())
+	// spew.Dump(mgr.GetScheme().AllKnownTypes())
+	if err != nil {
+		return fmt.Errorf("could not add mgr-scheme to duros: %w", err)
+	}
+	log.Info("added mgr-scheme to duros")
+
+	MgrScheme = *mgr.GetScheme()
+
 	err = extensionscontroller.AddToScheme(mgr.GetScheme())
 	if err != nil {
 		return fmt.Errorf("could not add mgr-scheme to extension-controller: %w", err)
@@ -143,10 +160,12 @@ func (options *Options) run(ctx context.Context) error {
 	}
 	log.Info("added mgr-scheme to installation")
 
-	ctrlConfig := options.durosProviderOptions.Completed()
+	ctrlConfig := options.durosOptions.Completed()
 	ctrlConfig.Apply(&controller.DefaultAddOptions.Config)
 
 	options.controllerOptions.Completed().Apply(&controller.DefaultAddOptions.ControllerOptions)
+	config := &controller.DefaultAddOptions.Config
+	log.Info("partitionConfig length: " + string(len(config.PartitionConfig)))
 	options.reconcileOptions.Completed().Apply(&controller.DefaultAddOptions.IgnoreOperationAnnotation, &controller.DefaultAddOptions.ExtensionClass)
 	options.heartbeatOptions.Completed().Apply(&heartbeatcontroller.DefaultAddOptions)
 

@@ -1,4 +1,4 @@
-package durosprovider
+package duros
 
 import (
 	"context"
@@ -16,9 +16,9 @@ import (
 	"github.com/gardener/gardener/pkg/utils/managedresources"
 
 	"github.com/go-logr/logr"
-	"github.com/metal-stack/gardener-extension-duros-provider/pkg/apis/config"
-	"github.com/metal-stack/gardener-extension-duros-provider/pkg/apis/durosprovider/v1alpha1"
-	"github.com/metal-stack/gardener-extension-duros-provider/pkg/imagevector"
+	"github.com/metal-stack/gardener-extension-duros/pkg/apis/config"
+	"github.com/metal-stack/gardener-extension-duros/pkg/apis/duros/v1alpha1"
+	"github.com/metal-stack/gardener-extension-duros/pkg/imagevector"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -66,17 +66,22 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, ex *extension
 		return fmt.Errorf("could not get cluster: %w", err)
 	}
 
-	durosproviderConfig := &v1alpha1.DurosProviderConfig{}
+	durosConfig := &v1alpha1.DurosConfig{}
 	if ex.Spec.ProviderConfig != nil {
-		_, _, err := a.decoder.Decode(ex.Spec.ProviderConfig.Raw, nil, durosproviderConfig)
+		_, _, err := a.decoder.Decode(ex.Spec.ProviderConfig.Raw, nil, durosConfig)
 		if err != nil {
 			return fmt.Errorf("failed to decode provider config: %w", err)
 		}
 	}
 
-	partitionCfg := a.config.PartitionConfig[durosproviderConfig.PartitionID]
+	partitionCfg := a.config.PartitionConfig[durosConfig.PartitionID]
 
-	crdClientSet, err := clientset.NewForConfig(&rest.Config{})
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		return fmt.Errorf("unable to get k8s client config: %w", err)
+	}
+
+	crdClientSet, err := clientset.NewForConfig(config)
 	if err != nil {
 		return fmt.Errorf("could not create crd-client: %w", err)
 	}
@@ -134,33 +139,41 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, ex *extension
 		}
 	}
 
-	controllerObjectsSeed, err := a.GetControllerObjectsForSeed(cluster, partitionCfg, *durosproviderConfig)
+	log.Info("Prequirements deployed...")
+
+	controllerObjectsSeed, err := a.GetControllerObjectsForSeed(cluster, partitionCfg, *durosConfig, ex.Namespace)
 	if err != nil {
 		return err
 	}
-	durosObjectsSeed := a.GetDurusObjectsForSeed(*durosproviderConfig)
+	durosObjectsSeed := a.GetDurosObjectsForSeed(*durosConfig)
 	shootControlPlaneObjects := a.shootControlPlaneObjects()
 
-	controllerResourcesSeed, err := managedresources.NewRegistry(kubernetes.SeedScheme, kubernetes.SeedCodec, kubernetes.SeedSerializer).AddAllAndSerialize(controllerObjectsSeed...)
+	log.Info("successfully got object")
+
+	controllerResourcesSeed, err := managedresources.NewRegistry(a.client.Scheme(), serializer.NewCodecFactory(a.client.Scheme()), kubernetes.SeedSerializer).AddAllAndSerialize(controllerObjectsSeed...)
 	if err != nil {
 		return err
 	}
-
-	durosResourcesSeed, err := managedresources.NewRegistry(kubernetes.SeedScheme, kubernetes.SeedCodec, kubernetes.SeedSerializer).AddAllAndSerialize(durosObjectsSeed...)
-	if err != nil {
-		return err
-	}
-
-	shootControlPlaneResources, err := managedresources.NewRegistry(kubernetes.ShootScheme, kubernetes.ShootCodec, kubernetes.ShootSerializer).AddAllAndSerialize(shootControlPlaneObjects...)
-	if err != nil {
-		return err
-	}
-
+	log.Info("1")
 	err = managedresources.CreateForSeed(ctx, a.client, ex.Namespace, v1alpha1.SeedDurosControllerResourceName, false, controllerResourcesSeed)
 	if err != nil {
 		return err
 	}
 	log.Info("managed resource created successfully", "name", v1alpha1.SeedDurosControllerResourceName)
+
+	// spew.Dump(kubernetes.SeedScheme.AllKnownTypes())
+	durosResourcesSeed, err := managedresources.NewRegistry(a.client.Scheme(), serializer.NewCodecFactory(a.client.Scheme()), kubernetes.SeedSerializer).AddAllAndSerialize(durosObjectsSeed...)
+	if err != nil {
+		return err
+	}
+	log.Info("2")
+
+	shootControlPlaneResources, err := managedresources.NewRegistry(kubernetes.ShootScheme, kubernetes.ShootCodec, kubernetes.ShootSerializer).AddAllAndSerialize(shootControlPlaneObjects...)
+	if err != nil {
+		return err
+	}
+	log.Info("3")
+	log.Info("successfully got resources")
 
 	err = managedresources.CreateForSeed(ctx, a.client, ex.Namespace, v1alpha1.SeedDurosResourceName, false, durosResourcesSeed)
 	if err != nil {
@@ -168,7 +181,7 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, ex *extension
 	}
 	log.Info("managed resource created successfully", "name", v1alpha1.SeedDurosResourceName)
 
-	err = managedresources.CreateForShoot(ctx, a.client, cluster.Shoot.GetNamespace(), v1alpha1.ShootDurosResourceName, "duros-extension", false, shootControlPlaneResources)
+	err = managedresources.CreateForShoot(ctx, a.client, "kube-system", v1alpha1.ShootDurosResourceName, "duros-extension", false, shootControlPlaneResources)
 	if err != nil {
 		return err
 	}
@@ -240,7 +253,7 @@ func (a *actuator) Migrate(ctx context.Context, log logr.Logger, ex *extensionsv
 	return nil
 }
 
-func (a *actuator) GetControllerObjectsForSeed(cluster *extensions.Cluster, partitionCfg config.DurosPartitionConfiguration, durosproviderCfg v1alpha1.DurosProviderConfig) ([]client.Object, error) {
+func (a *actuator) GetControllerObjectsForSeed(cluster *extensions.Cluster, partitionCfg config.DurosPartitionConfiguration, durosCfg v1alpha1.DurosConfig, extensionNamespace string) ([]client.Object, error) {
 	serviceAccount := corev1.ServiceAccount{
 		ObjectMeta: v1.ObjectMeta{
 			Name: "duros-controller",
@@ -267,11 +280,12 @@ func (a *actuator) GetControllerObjectsForSeed(cluster *extensions.Cluster, part
 
 	roleBinding := rbacv1.ClusterRoleBinding{
 		ObjectMeta: v1.ObjectMeta{
-			Name: "duros-controller",
+			Name:      "duros-controller",
+			Namespace: extensionNamespace,
 		},
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
-			Kind:     "Role",
+			Kind:     "ClusterRole",
 			Name:     "duros-controller",
 		},
 		Subjects: []rbacv1.Subject{
@@ -322,7 +336,7 @@ func (a *actuator) GetControllerObjectsForSeed(cluster *extensions.Cluster, part
 
 	durosControllerImage, err := imagevector.ImageVector().FindImage("duros-controller")
 	if err != nil {
-		return nil, fmt.Errorf("failed to find csi-attacher image: %w", err)
+		return nil, fmt.Errorf("failed to find duros-controller image: %w", err)
 	}
 
 	deployment := appsv1.Deployment{
@@ -490,9 +504,9 @@ func (a *actuator) GetControllerObjectsForSeed(cluster *extensions.Cluster, part
 	return objects, nil
 }
 
-func (a *actuator) GetDurusObjectsForSeed(durosproviderCfg v1alpha1.DurosProviderConfig) []client.Object {
+func (a *actuator) GetDurosObjectsForSeed(durosCfg v1alpha1.DurosConfig) []client.Object {
 	var scs []durosv1.StorageClass
-	for _, sc := range durosproviderCfg.StorageClasses {
+	for _, sc := range durosCfg.StorageClasses {
 		scs = append(scs, durosv1.StorageClass{
 			Name:         sc.Name,
 			ReplicaCount: sc.ReplicaCount,
@@ -506,7 +520,7 @@ func (a *actuator) GetDurusObjectsForSeed(durosproviderCfg v1alpha1.DurosProvide
 			Name: "duros-controller",
 		},
 		Spec: durosv1.DurosSpec{
-			MetalProjectID: durosproviderCfg.ProjectID,
+			MetalProjectID: durosCfg.ProjectID,
 			StorageClasses: scs,
 		},
 	}
@@ -522,7 +536,8 @@ func (a *actuator) shootControlPlaneObjects() []client.Object {
 
 	role := rbacv1.ClusterRole{
 		ObjectMeta: v1.ObjectMeta{
-			Name: "duros-controller",
+			Name:      "duros-controller",
+			Namespace: "kube-system",
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
@@ -560,7 +575,8 @@ func (a *actuator) shootControlPlaneObjects() []client.Object {
 
 	roleBinding := rbacv1.ClusterRoleBinding{
 		ObjectMeta: v1.ObjectMeta{
-			Name: "duros-controller",
+			Name:      "duros-controller",
+			Namespace: "kube-system",
 		},
 		Subjects: []rbacv1.Subject{
 			{
@@ -571,6 +587,7 @@ func (a *actuator) shootControlPlaneObjects() []client.Object {
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
 			Name:     "duros-controller",
+			Kind:     "ClusterRole",
 		},
 	}
 

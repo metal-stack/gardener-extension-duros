@@ -1,3 +1,3 @@
 FROM alpine:3.21
-COPY bin/gardener-extension-duros-provider /gardener-extension-duros-provider
-CMD ["/gardener-extension-duros-provider"]
+COPY bin/gardener-extension-duros /gardener-extension-duros
+CMD ["/gardener-extension-duros"]

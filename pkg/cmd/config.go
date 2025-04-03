@@ -5,8 +5,8 @@ import (
 	"os"
 
 	healthcheckconfig "github.com/gardener/gardener/extensions/pkg/apis/config"
-	configapi "github.com/metal-stack/gardener-extension-duros-provider/pkg/apis/config"
-	"github.com/metal-stack/gardener-extension-duros-provider/pkg/apis/config/v1alpha1"
+	configapi "github.com/metal-stack/gardener-extension-duros/pkg/apis/config"
+	"github.com/metal-stack/gardener-extension-duros/pkg/apis/config/v1alpha1"
 
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/runtime"

@@ -1,12 +1,13 @@
 package v1alpha1
 
 import (
+	durosv1 "github.com/metal-stack/duros-controller/api/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // GroupName is the group name use in this package
-const GroupName = "duros-provider.metal.extensions.config.gardener.cloud"
+const GroupName = "duros.metal.extensions.config.gardener.cloud"
 
 // SchemeGroupVersion is group version used to register these objects
 var SchemeGroupVersion = schema.GroupVersion{Group: GroupName, Version: "v1alpha1"}
@@ -35,6 +36,7 @@ func init() {
 func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
 		&ControllerConfiguration{},
+		&durosv1.Duros{},
 	)
 	return nil
 }

@@ -7,7 +7,7 @@ import (
 	runtimelog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
-	"github.com/metal-stack/gardener-extension-duros-provider/cmd/gardener-extension-duros-provider/app"
+	"github.com/metal-stack/gardener-extension-duros/cmd/gardener-extension-duros/app"
 )
 
 func main() {

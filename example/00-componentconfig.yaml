@@ -1,5 +1,5 @@
 ---
-apiVersion: duros-provider.metal.extensions.config.gardener.cloud/v1alpha1
+apiVersion: duros.metal.extensions.config.gardener.cloud/v1alpha1
 kind: ControllerConfiguration
 auth:
   providerTenant: a-tenant

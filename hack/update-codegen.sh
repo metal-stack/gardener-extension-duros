@@ -17,38 +17,38 @@ rm -f $GOPATH/bin/*-gen
 
 PROJECT_ROOT=$(dirname $0)/..
 
-git config --global --add safe.directory /go/src/github.com/metal-stack/gardener-extension-duros-provider
+git config --global --add safe.directory /go/src/github.com/metal-stack/gardener-extension-duros
 
 bash "${CODE_GEN_DIR}/generate-internal-groups.sh" \
   deepcopy,defaulter \
-  github.com/metal-stack/gardener-extension-duros-provider/pkg/client \
-  github.com/metal-stack/gardener-extension-duros-provider/pkg/apis \
-  github.com/metal-stack/gardener-extension-duros-provider/pkg/apis \
-  "durosprovider:v1alpha1" \
+  github.com/metal-stack/gardener-extension-duros/pkg/client \
+  github.com/metal-stack/gardener-extension-duros/pkg/apis \
+  github.com/metal-stack/gardener-extension-duros/pkg/apis \
+  "duros:v1alpha1" \
   --go-header-file "${PROJECT_ROOT}/hack/boilerplate.txt"
 
 bash "${CODE_GEN_DIR}/generate-internal-groups.sh" \
   conversion \
-  github.com/metal-stack/gardener-extension-duros-provider/pkg/client \
-  github.com/metal-stack/gardener-extension-duros-provider/pkg/apis \
-  github.com/metal-stack/gardener-extension-duros-provider/pkg/apis \
-  "durosprovider:v1alpha1" \
-  --extra-peer-dirs=github.com/metal-stack/gardener-extension-duros-provider/pkg/apis/durosprovider,github.com/metal-stack/gardener-extension-duros-provider/pkg/apis/durosprovider/v1alpha1,k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/apimachinery/pkg/conversion,k8s.io/apimachinery/pkg/runtime \
+  github.com/metal-stack/gardener-extension-duros/pkg/client \
+  github.com/metal-stack/gardener-extension-duros/pkg/apis \
+  github.com/metal-stack/gardener-extension-duros/pkg/apis \
+  "duros:v1alpha1" \
+  --extra-peer-dirs=github.com/metal-stack/gardener-extension-duros/pkg/apis/duros,github.com/metal-stack/gardener-extension-duros/pkg/apis/duros/v1alpha1,k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/apimachinery/pkg/conversion,k8s.io/apimachinery/pkg/runtime \
   --go-header-file "${PROJECT_ROOT}/hack/boilerplate.txt"
 
 bash "${CODE_GEN_DIR}/generate-internal-groups.sh" \
   deepcopy,defaulter \
-  github.com/metal-stack/gardener-extension-duros-provider/pkg/client/componentconfig \
-  github.com/metal-stack/gardener-extension-duros-provider/pkg/apis \
-  github.com/metal-stack/gardener-extension-duros-provider/pkg/apis \
+  github.com/metal-stack/gardener-extension-duros/pkg/client/componentconfig \
+  github.com/metal-stack/gardener-extension-duros/pkg/apis \
+  github.com/metal-stack/gardener-extension-duros/pkg/apis \
   "config:v1alpha1" \
   --go-header-file "${PROJECT_ROOT}/hack/boilerplate.txt"
 
 bash "${CODE_GEN_DIR}/generate-internal-groups.sh" \
   conversion \
-  github.com/metal-stack/gardener-extension-duros-provider/pkg/client/componentconfig \
-  github.com/metal-stack/gardener-extension-duros-provider/pkg/apis \
-  github.com/metal-stack/gardener-extension-duros-provider/pkg/apis \
+  github.com/metal-stack/gardener-extension-duros/pkg/client/componentconfig \
+  github.com/metal-stack/gardener-extension-duros/pkg/apis \
+  github.com/metal-stack/gardener-extension-duros/pkg/apis \
   "config:v1alpha1" \
-  --extra-peer-dirs=github.com/metal-stack/gardener-extension-duros-provider/pkg/apis/config,github.com/metal-stack/gardener-extension-duros-provider/pkg/apis/config/v1alpha1,k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/apimachinery/pkg/conversion,k8s.io/apimachinery/pkg/runtime \
+  --extra-peer-dirs=github.com/metal-stack/gardener-extension-duros/pkg/apis/config,github.com/metal-stack/gardener-extension-duros/pkg/apis/config/v1alpha1,k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/apimachinery/pkg/conversion,k8s.io/apimachinery/pkg/runtime \
   --go-header-file "${PROJECT_ROOT}/hack/boilerplate.txt"

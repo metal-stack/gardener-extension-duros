@@ -1,8 +1,8 @@
 package install
 
 import (
-	durosprovider "github.com/metal-stack/gardener-extension-duros-provider/pkg/apis/durosprovider"
-	"github.com/metal-stack/gardener-extension-duros-provider/pkg/apis/durosprovider/v1alpha1"
+	duros "github.com/metal-stack/gardener-extension-duros/pkg/apis/duros"
+	"github.com/metal-stack/gardener-extension-duros/pkg/apis/duros/v1alpha1"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -11,7 +11,7 @@ import (
 var (
 	schemeBuilder = runtime.NewSchemeBuilder(
 		v1alpha1.AddToScheme,
-		durosprovider.AddToScheme,
+		duros.AddToScheme,
 		setVersionPriority,
 	)
 

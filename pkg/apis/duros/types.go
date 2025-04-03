@@ -1,4 +1,4 @@
-package durosprovider
+package duros
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -6,8 +6,8 @@ import (
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// DurosProviderConfig configuration resource
-type DurosProviderConfig struct {
+// DurosConfig configuration resource
+type DurosConfig struct {
 	metav1.TypeMeta
 
 	// ProjectID is the id of the project
@@ -31,4 +31,6 @@ type DurosSeedStorageClass struct {
 	Encryption bool
 	// Default is a flag to det the storage class as default
 	Default bool
+	// QoS is the qualtiy of service policy which is used by the storageclass
+	QoS string
 }

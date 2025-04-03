@@ -6,7 +6,7 @@ IMAGE_PREFIX                := $(REGISTRY)
 REPO_ROOT                   := $(shell dirname "$(realpath $(lastword $(MAKEFILE_LIST)))")
 HACK_DIR                    := $(REPO_ROOT)/hack
 HOSTNAME                    := $(shell hostname)
-LD_FLAGS                    := "-w -X github.com/metal-stack/gardener-extension-duros-provider/pkg/version.Version=$(IMAGE_TAG)"
+LD_FLAGS                    := "-w -X github.com/metal-stack/gardener-extension-duros/pkg/version.Version=$(IMAGE_TAG)"
 VERIFY                      := true
 LEADER_ELECTION             := false
 IGNORE_OPERATION_ANNOTATION := false
@@ -37,7 +37,7 @@ tidy:
 
 .PHONY: build
 build:
-	go build -ldflags $(LD_FLAGS) -tags netgo -o bin/gardener-extension-duros-provider ./cmd/gardener-extension-duros-provider
+	go build -ldflags $(LD_FLAGS) -tags netgo -o bin/gardener-extension-duros ./cmd/gardener-extension-duros
 
 .PHONY: install
 install: tidy $(HELM)
@@ -48,12 +48,12 @@ install: tidy $(HELM)
 docker-image:
 	@docker build --no-cache \
 		--build-arg VERIFY=$(VERIFY) \
-		--tag $(IMAGE_PREFIX)/gardener-extension-duros-provider:$(IMAGE_TAG) \
+		--tag $(IMAGE_PREFIX)/gardener-extension-duros:$(IMAGE_TAG) \
 		--file Dockerfile --memory 6g .
 
 .PHONY: docker-push
 docker-push:
-	@docker push $(IMAGE_PREFIX)/gardener-extension-duros-provider:$(IMAGE_TAG)
+	@docker push $(IMAGE_PREFIX)/gardener-extension-duros:$(IMAGE_TAG)
 
 #####################################################################
 # Rules for verification, formatting, linting, testing and cleaning #
@@ -82,8 +82,8 @@ generate: $(VGOPATH) $(HELM) $(YQ)
 
 .PHONY: generate-in-docker
 generate-in-docker: tidy install $(HELM) $(YQ)
-	docker run --rm -i$(DOCKER_TTY_ARG) -v $(PWD):/go/src/github.com/metal-stack/gardener-extension-duros-provider golang:$(GO_VERSION) \
-		sh -c "cd /go/src/github.com/metal-stack/gardener-extension-duros-provider \
+	docker run --rm -i$(DOCKER_TTY_ARG) -v $(PWD):/go/src/github.com/metal-stack/gardener-extension-duros golang:$(GO_VERSION) \
+		sh -c "cd /go/src/github.com/metal-stack/gardener-extension-duros \
 				&& make generate \
 				&& chown -R $(shell id -u):$(shell id -g) ."
 
@@ -96,7 +96,7 @@ push-to-gardener-local:
 	CGO_ENABLED=1 go build \
 		-ldflags "-extldflags '-static -s -w'" \
 		-tags 'osusergo netgo static_build' \
-		-o bin/gardener-extension-duros-provider \
-		./cmd/gardener-extension-duros-provider
-	docker build -f Dockerfile.dev -t ghcr.io/metal-stack/gardener-extension-duros-provider:latest .
-	kind --name gardener-local load docker-image ghcr.io/metal-stack/gardener-extension-duros-provider:latest
+		-o bin/gardener-extension-duros \
+		./cmd/gardener-extension-duros
+	docker build -f Dockerfile.dev -t ghcr.io/metal-stack/gardener-extension-duros:latest .
+	kind --name gardener-local load docker-image ghcr.io/metal-stack/gardener-extension-duros:latest
