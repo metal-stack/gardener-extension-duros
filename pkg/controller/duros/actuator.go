@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	firewallv1 "github.com/metal-stack/firewall-controller/v2/api/v1"
 
 	"github.com/gardener/gardener/extensions/pkg/controller/extension"
+	"github.com/gardener/gardener/pkg/controllerutils/reconciler"
 
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
@@ -41,9 +43,12 @@ import (
 )
 
 const (
-	deploymentName              string            = "duros-controller"
-	pullPolicy                  corev1.PullPolicy = corev1.PullIfNotPresent
-	clusterWideNetworkPolicyCRD string            = "clusterwidenetworkpolicies.metal-stack.io"
+	deploymentName string = "duros-controller"
+	shootNamespace string = "kube-system"
+
+	pullPolicy corev1.PullPolicy = corev1.PullIfNotPresent
+
+	clusterWideNetworkPolicyCRD string = "clusterwidenetworkpolicies.metal-stack.io"
 )
 
 // NewActuator returns an actuator responsible for Extension resources.
@@ -175,7 +180,7 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, ex *extension
 	}
 	log.Info("managed resource created successfully", "name", v1alpha1.SeedDurosResourceName)
 
-	err = managedresources.CreateForShoot(ctx, a.client, "kube-system", v1alpha1.ShootDurosResourceName, "duros-extension", false, shootControlPlaneResources)
+	err = managedresources.CreateForShoot(ctx, a.client, shootNamespace, v1alpha1.ShootDurosResourceName, "duros-extension", false, shootControlPlaneResources)
 	if err != nil {
 		return err
 	}
@@ -188,15 +193,18 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, ex *extension
 func (a *actuator) Delete(ctx context.Context, log logr.Logger, ex *extensionsv1alpha1.Extension) error {
 	err := deleteDurosCustomResource(ctx, a.client, ex.Namespace)
 	if err != nil {
-		//TODO reque
+		return &reconciler.RequeueAfterError{
+			Cause:        err,
+			RequeueAfter: 30 * time.Second,
+		}
 	}
 
 	err = managedresources.DeleteForSeed(ctx, a.client, ex.Namespace, v1alpha1.SeedDurosControllerResourceName)
 	if err != nil {
 		return err
 	}
+	err = managedresources.DeleteForShoot(ctx, a.client, shootNamespace, v1alpha1.ShootDurosResourceName)
 
-	err = managedresources.DeleteForShoot(ctx, a.client, "kube-system", v1alpha1.ShootDurosResourceName)
 	if err != nil {
 		return err
 	}
@@ -548,7 +556,7 @@ func (a *actuator) shootControlPlaneObjects() []client.Object {
 	role := rbacv1.ClusterRole{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "duros-controller",
-			Namespace: "kube-system",
+			Namespace: shootNamespace,
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
@@ -587,13 +595,13 @@ func (a *actuator) shootControlPlaneObjects() []client.Object {
 	roleBinding := rbacv1.ClusterRoleBinding{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "duros-controller",
-			Namespace: "kube-system",
+			Namespace: shootNamespace,
 		},
 		Subjects: []rbacv1.Subject{
 			{
 				Kind:      "serviceaccount",
 				Name:      "duros-controllerS",
-				Namespace: "kube-system",
+				Namespace: shootNamespace,
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
