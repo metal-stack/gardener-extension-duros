@@ -13,6 +13,7 @@ import (
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/gardener/gardener/pkg/client/kubernetes"
 	"github.com/gardener/gardener/pkg/extensions"
+	gutil "github.com/gardener/gardener/pkg/utils/gardener"
 	"github.com/gardener/gardener/pkg/utils/managedresources"
 
 	"github.com/go-logr/logr"
@@ -40,6 +41,7 @@ import (
 )
 
 const (
+	deploymentName              string            = "duros-controller"
 	pullPolicy                  corev1.PullPolicy = corev1.PullIfNotPresent
 	clusterWideNetworkPolicyCRD string            = "clusterwidenetworkpolicies.metal-stack.io"
 )
@@ -139,16 +141,12 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, ex *extension
 		}
 	}
 
-	log.Info("Prequirements deployed...")
-
-	controllerObjectsSeed, err := a.GetControllerObjectsForSeed(cluster, partitionCfg, *durosConfig, ex.Namespace)
+	controllerObjectsSeed, err := a.GetControllerObjectsForSeed(ctx, cluster, partitionCfg, *durosConfig, ex.Namespace)
 	if err != nil {
 		return err
 	}
 	durosObjectsSeed := a.GetDurosObjectsForSeed(*durosConfig)
 	shootControlPlaneObjects := a.shootControlPlaneObjects()
-
-	log.Info("successfully got object")
 
 	controllerResourcesSeed, err := managedresources.NewRegistry(a.client.Scheme(), serializer.NewCodecFactory(a.client.Scheme()), kubernetes.SeedSerializer).AddAllAndSerialize(controllerObjectsSeed...)
 	if err != nil {
@@ -161,19 +159,15 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, ex *extension
 	}
 	log.Info("managed resource created successfully", "name", v1alpha1.SeedDurosControllerResourceName)
 
-	// spew.Dump(kubernetes.SeedScheme.AllKnownTypes())
 	durosResourcesSeed, err := managedresources.NewRegistry(a.client.Scheme(), serializer.NewCodecFactory(a.client.Scheme()), kubernetes.SeedSerializer).AddAllAndSerialize(durosObjectsSeed...)
 	if err != nil {
 		return err
 	}
-	log.Info("2")
 
 	shootControlPlaneResources, err := managedresources.NewRegistry(kubernetes.ShootScheme, kubernetes.ShootCodec, kubernetes.ShootSerializer).AddAllAndSerialize(shootControlPlaneObjects...)
 	if err != nil {
 		return err
 	}
-	log.Info("3")
-	log.Info("successfully got resources")
 
 	err = managedresources.CreateForSeed(ctx, a.client, ex.Namespace, v1alpha1.SeedDurosResourceName, false, durosResourcesSeed)
 	if err != nil {
@@ -253,16 +247,18 @@ func (a *actuator) Migrate(ctx context.Context, log logr.Logger, ex *extensionsv
 	return nil
 }
 
-func (a *actuator) GetControllerObjectsForSeed(cluster *extensions.Cluster, partitionCfg config.DurosPartitionConfiguration, durosCfg v1alpha1.DurosConfig, extensionNamespace string) ([]client.Object, error) {
+func (a *actuator) GetControllerObjectsForSeed(ctx context.Context, cluster *extensions.Cluster, partitionCfg config.DurosPartitionConfiguration, durosCfg v1alpha1.DurosConfig, extensionNamespace string) ([]client.Object, error) {
 	serviceAccount := corev1.ServiceAccount{
 		ObjectMeta: v1.ObjectMeta{
-			Name: "duros-controller",
+			Name:      "duros-controller",
+			Namespace: extensionNamespace,
 		},
 	}
 
 	role := rbacv1.ClusterRole{
 		ObjectMeta: v1.ObjectMeta{
-			Name: "duros-controller",
+			Name:      "duros-controller",
+			Namespace: extensionNamespace,
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
@@ -290,8 +286,9 @@ func (a *actuator) GetControllerObjectsForSeed(cluster *extensions.Cluster, part
 		},
 		Subjects: []rbacv1.Subject{
 			{
-				Kind: "ServiceAccount",
-				Name: "duros-controller",
+				Kind:      "ServiceAccount",
+				Name:      "duros-controller",
+				Namespace: extensionNamespace,
 			},
 		},
 	}
@@ -308,7 +305,8 @@ func (a *actuator) GetControllerObjectsForSeed(cluster *extensions.Cluster, part
 	}
 	secret := corev1.Secret{
 		ObjectMeta: v1.ObjectMeta{
-			Name: "duros-admin",
+			Name:      "duros-admin",
+			Namespace: extensionNamespace,
 			Labels: map[string]string{
 				"app": "duros-controller",
 			},
@@ -336,20 +334,29 @@ func (a *actuator) GetControllerObjectsForSeed(cluster *extensions.Cluster, part
 
 	durosControllerImage, err := imagevector.ImageVector().FindImage("duros-controller")
 	if err != nil {
-		return nil, fmt.Errorf("failed to find duros-controller image: %w", err)
+		return nil, fmt.Errorf("unable to find duros-controller image: %w", err)
+	}
+
+	accessSecret := gutil.NewShootAccessSecret(deploymentName, extensionNamespace)
+	err = accessSecret.Reconcile(ctx, a.client)
+	if err != nil {
+		return nil, fmt.Errorf("unable to reconcile shoot-access secret")
 	}
 
 	deployment := appsv1.Deployment{
 		ObjectMeta: v1.ObjectMeta{
-			Name: "duros-controller",
+			Name:      "duros-controller",
+			Namespace: extensionNamespace,
 			Labels: map[string]string{
-				"app": "duros-controller",
+				"app":                        "duros-controller",
+				"app.kubernetes.io/instance": "gardener-extension-duros",
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
 			Selector: &v1.LabelSelector{
 				MatchLabels: map[string]string{
-					"app": "duros-controller",
+					"app":                        "duros-controller",
+					"app.kubernetes.io/instance": "gardener-extension-duros",
 				},
 			},
 			Replicas: nil,
@@ -357,6 +364,7 @@ func (a *actuator) GetControllerObjectsForSeed(cluster *extensions.Cluster, part
 				ObjectMeta: v1.ObjectMeta{
 					Name: "duros-controller",
 					Labels: map[string]string{
+
 						"networking.gardener.cloud/from-prometheus":                     "allowed",
 						"networking.gardener.cloud/to-dns":                              "allowed",
 						"networking.gardener.cloud/to-shoot-apiserver":                  "allowed",
@@ -364,6 +372,8 @@ func (a *actuator) GetControllerObjectsForSeed(cluster *extensions.Cluster, part
 						"networking.gardener.cloud/to-public-networks":                  "allowed",
 						"networking.gardener.cloud/to-runtime-apiserver":                "allowed",
 						"networking.resources.gardener.cloud/to-kube-apiserver-tcp-443": "allowed",
+						"app.kubernetes.io/instance":                                    "gardener-extension-duros",
+						"app":                                                           "duros-controller",
 					},
 				},
 				Spec: corev1.PodSpec{
@@ -392,7 +402,7 @@ func (a *actuator) GetControllerObjectsForSeed(cluster *extensions.Cluster, part
 								},
 								{
 									Name:      "kubeconfig",
-									MountPath: "/var/run/secrets/gardener.cloud/shoot/generice-kubeconfig",
+									MountPath: "/var/run/secrets/gardener.cloud/shoot/generic-kubeconfig",
 									ReadOnly:  true,
 								},
 							},
@@ -436,7 +446,7 @@ func (a *actuator) GetControllerObjectsForSeed(cluster *extensions.Cluster, part
 													},
 												},
 												LocalObjectReference: corev1.LocalObjectReference{
-													Name: "shoot-access-duros-controller",
+													Name: accessSecret.Secret.Name,
 												},
 												Optional: ptr.To(false),
 											},
@@ -453,7 +463,8 @@ func (a *actuator) GetControllerObjectsForSeed(cluster *extensions.Cluster, part
 
 	networkPolicy := networkv1.NetworkPolicy{
 		ObjectMeta: v1.ObjectMeta{
-			Name: "egress-from-duros-controller-to-storage",
+			Name:      "egress-from-duros-controller-to-storage",
+			Namespace: extensionNamespace,
 		},
 		Spec: networkv1.NetworkPolicySpec{
 			PodSelector: v1.LabelSelector{
@@ -580,8 +591,9 @@ func (a *actuator) shootControlPlaneObjects() []client.Object {
 		},
 		Subjects: []rbacv1.Subject{
 			{
-				Kind: "serviceaccount",
-				Name: "duros-controllerS",
+				Kind:      "serviceaccount",
+				Name:      "duros-controllerS",
+				Namespace: "kube-system",
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
