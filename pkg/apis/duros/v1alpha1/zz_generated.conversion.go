@@ -49,7 +49,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 
 func autoConvert_v1alpha1_DurosConfig_To_duros_DurosConfig(in *DurosConfig, out *duros.DurosConfig, s conversion.Scope) error {
 	out.ProjectID = in.ProjectID
-	out.PartitionID = in.PartitionID
 	out.StorageClasses = *(*[]duros.DurosSeedStorageClass)(unsafe.Pointer(&in.StorageClasses))
 	return nil
 }
@@ -61,7 +60,6 @@ func Convert_v1alpha1_DurosConfig_To_duros_DurosConfig(in *DurosConfig, out *dur
 
 func autoConvert_duros_DurosConfig_To_v1alpha1_DurosConfig(in *duros.DurosConfig, out *DurosConfig, s conversion.Scope) error {
 	out.ProjectID = in.ProjectID
-	out.PartitionID = in.PartitionID
 	out.StorageClasses = *(*[]DurosSeedStorageClass)(unsafe.Pointer(&in.StorageClasses))
 	return nil
 }

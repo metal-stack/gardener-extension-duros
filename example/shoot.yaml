@@ -18,25 +18,24 @@ spec:
         apiVersion: duros.metal.extensions.gardener.cloud/v1alpha1
         kind: DurosConfig
         # Your configuration here
-        # projectID: UUID
-        # partitionID: ID
-        # isEncryptionDisabled: false
-        # storageClasses:
-        #   - name: "premium (default)"
-        #     replicaCount: 3
-        #     compression: true
-        #     encryption: false
-        #     default: false
-        #   - name: "premium (encrypted)"
-        #     replicaCount: 3
-        #     compression: false
-        #     encryption: true
-        #     default: false
-        #   - name: standard
-        #     replicaCount: 3
-        #     compression: false
-        #     encryption: false
-        #     default: true
+        projectID: c890d4e4-d00f-4a5a-8eda-483b3ea6b6e3
+        storageClasses:
+          #   - name: "premium (default)"
+          #     replicaCount: 3
+          #     compression: true
+          #     encryption: false
+          #     default: false
+          #   - name: "premium (encrypted)"
+          #     replicaCount: 3
+          #     compression: false
+          #     encryption: true
+          #     default: false
+          - name: standard
+            replicaCount: 3
+            compression: false
+            encryption: false
+            default: true
+            qos: standard
   networking:
     type: calico
     nodes: 10.10.0.0/16

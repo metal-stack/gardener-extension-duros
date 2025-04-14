@@ -164,8 +164,6 @@ func (options *Options) run(ctx context.Context) error {
 	ctrlConfig.Apply(&controller.DefaultAddOptions.Config)
 
 	options.controllerOptions.Completed().Apply(&controller.DefaultAddOptions.ControllerOptions)
-	config := &controller.DefaultAddOptions.Config
-	log.Info("partitionConfig length: " + string(len(config.PartitionConfig)))
 	options.reconcileOptions.Completed().Apply(&controller.DefaultAddOptions.IgnoreOperationAnnotation, &controller.DefaultAddOptions.ExtensionClass)
 	options.heartbeatOptions.Completed().Apply(&heartbeatcontroller.DefaultAddOptions)
 

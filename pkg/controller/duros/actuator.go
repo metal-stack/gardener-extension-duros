@@ -70,18 +70,19 @@ type actuator struct {
 func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, ex *extensionsv1alpha1.Extension) error {
 	cluster, err := extensionscontroller.GetCluster(ctx, a.client, ex.GetNamespace())
 	if err != nil {
-		return fmt.Errorf("could not get cluster: %w", err)
+		return fmt.Errorf("unable to get cluster: %w", err)
 	}
 
 	durosConfig := &v1alpha1.DurosConfig{}
 	if ex.Spec.ProviderConfig != nil {
 		_, _, err := a.decoder.Decode(ex.Spec.ProviderConfig.Raw, nil, durosConfig)
 		if err != nil {
-			return fmt.Errorf("failed to decode provider config: %w", err)
+			return fmt.Errorf("unable to decode provider config: %w", err)
 		}
 	}
 
-	partitionCfg := a.config.PartitionConfig[durosConfig.PartitionID]
+	region := cluster.Shoot.Spec.Region
+	regionCfg := a.config.RegionConfig[region]
 
 	config, err := rest.InClusterConfig()
 	if err != nil {
@@ -90,7 +91,7 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, ex *extension
 
 	crdClientSet, err := clientset.NewForConfig(config)
 	if err != nil {
-		return fmt.Errorf("could not create crd-client: %w", err)
+		return fmt.Errorf("unable to create crd-client: %w", err)
 	}
 
 	crdList, err := crdClientSet.ApiextensionsV1().CustomResourceDefinitions().List(ctx, v1.ListOptions{})
@@ -108,7 +109,7 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, ex *extension
 			}
 			_, err = controllerutil.CreateOrUpdate(ctx, a.client, cp, func() error {
 				var to []networkv1.IPBlock
-				for _, e := range partitionCfg.Endpoints {
+				for _, e := range regionCfg.Endpoints {
 					withoutPort := strings.Split(e, ":")
 					to = append(to, networkv1.IPBlock{
 						CIDR: withoutPort[0] + "/32",
@@ -146,7 +147,7 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, ex *extension
 		}
 	}
 
-	controllerObjectsSeed, err := a.GetControllerObjectsForSeed(ctx, cluster, partitionCfg, *durosConfig, ex.Namespace)
+	controllerObjectsSeed, err := a.GetControllerObjectsForSeed(ctx, cluster, regionCfg, *durosConfig, ex.Namespace)
 	if err != nil {
 		return err
 	}
@@ -198,13 +199,11 @@ func (a *actuator) Delete(ctx context.Context, log logr.Logger, ex *extensionsv1
 			RequeueAfter: 30 * time.Second,
 		}
 	}
-
 	err = managedresources.DeleteForSeed(ctx, a.client, ex.Namespace, v1alpha1.SeedDurosControllerResourceName)
 	if err != nil {
 		return err
 	}
 	err = managedresources.DeleteForShoot(ctx, a.client, shootNamespace, v1alpha1.ShootDurosResourceName)
-
 	if err != nil {
 		return err
 	}
@@ -255,7 +254,7 @@ func (a *actuator) Migrate(ctx context.Context, log logr.Logger, ex *extensionsv
 	return nil
 }
 
-func (a *actuator) GetControllerObjectsForSeed(ctx context.Context, cluster *extensions.Cluster, partitionCfg config.DurosPartitionConfiguration, durosCfg v1alpha1.DurosConfig, extensionNamespace string) ([]client.Object, error) {
+func (a *actuator) GetControllerObjectsForSeed(ctx context.Context, cluster *extensions.Cluster, regionCfg config.DurosRegionConfiguration, durosCfg v1alpha1.DurosConfig, extensionNamespace string) ([]client.Object, error) {
 	serviceAccount := corev1.ServiceAccount{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "duros-controller",
@@ -302,14 +301,14 @@ func (a *actuator) GetControllerObjectsForSeed(ctx context.Context, cluster *ext
 	}
 
 	secretMap := map[string][]byte{
-		"admin-key":   []byte(partitionCfg.AdminKey),
-		"admin-token": []byte(partitionCfg.AdminToken),
+		"admin-key":   []byte(regionCfg.AdminKey),
+		"admin-token": []byte(regionCfg.AdminToken),
 	}
-	if partitionCfg.APICA != "" {
-		secretMap["api-ca"] = []byte(partitionCfg.APICA)
+	if regionCfg.APICA != "" {
+		secretMap["api-ca"] = []byte(regionCfg.APICA)
 	}
-	if partitionCfg.APIKey != "" {
-		secretMap["api-key"] = []byte(partitionCfg.APIKey)
+	if regionCfg.APIKey != "" {
+		secretMap["api-key"] = []byte(regionCfg.APIKey)
 	}
 	secret := corev1.Secret{
 		ObjectMeta: v1.ObjectMeta{
@@ -324,18 +323,18 @@ func (a *actuator) GetControllerObjectsForSeed(ctx context.Context, cluster *ext
 	}
 
 	durosControllerArgs := []string{
-		"-endpoints=" + strings.Join(partitionCfg.Endpoints, ","),
+		"-endpoints=" + strings.Join(regionCfg.Endpoints, ","),
 		"-namespace=",
 		"-enable-leader-election",
 		"-admin-token=/duros/admin-token",
 		"-admin-key=/duros/admin-key",
 		"-shoot-kubeconfig=/var/run/secrets/gardener.cloud/shoot/generic-kubeconfig/kubeconfig",
-		"-api-endpoint=" + partitionCfg.APIEndpoint,
+		"-api-endpoint=" + regionCfg.APIEndpoint,
 	}
-	if partitionCfg.APICA != "" {
+	if regionCfg.APICA != "" {
 		durosControllerArgs = append(durosControllerArgs, "-api-ca=/duros/api-ca")
 	}
-	if partitionCfg.APICert != "" && partitionCfg.APIKey != "" {
+	if regionCfg.APICert != "" && regionCfg.APIKey != "" {
 		durosControllerArgs = append(durosControllerArgs, "-api-cert=/duros/api-cert")
 		durosControllerArgs = append(durosControllerArgs, "-api-key=/duros/api-key")
 	}

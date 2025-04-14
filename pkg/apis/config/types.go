@@ -12,15 +12,15 @@ import (
 type ControllerConfiguration struct {
 	metav1.TypeMeta
 
-	// PartitionConfig is a map of a partition id to the duros partition configuration.
-	PartitionConfig map[string]DurosPartitionConfiguration
+	// RegionConfig is a map of a region id to the duros region configuration.
+	RegionConfig map[string]DurosRegionConfiguration
 
 	// HealthCheckConfig is the config for the health check controller.
 	HealthCheckConfig *healthcheckconfig.HealthCheckConfig
 }
 
-// DurosPartitionConfiguration is the configuration for duros for a particular partition.
-type DurosPartitionConfiguration struct {
+// DurosRegionConfiguration is the configuration for duros for a particular region.
+type DurosRegionConfiguration struct {
 	// Endpoints is the list of endpoints for the storage data plane and control plane communication.
 	Endpoints []string
 	// AdminKey is the key used for generating storage credentials.

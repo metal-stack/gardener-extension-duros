@@ -13,9 +13,6 @@ type DurosConfig struct {
 	// ProjectID is the id of the project
 	ProjectID string
 
-	// PartitionID is the id of the partition
-	PartitionID string
-
 	// StorageClasses contain information on the storage classes that the duros-controller creates in the shoot cluster
 	StorageClasses []DurosSeedStorageClass
 }
