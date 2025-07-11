@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	durosv1 "github.com/metal-stack/duros-controller/api/v1"
+	firewallv1 "github.com/metal-stack/firewall-controller/v2/api/v1"
 	"github.com/metal-stack/gardener-extension-duros/charts"
 	"github.com/metal-stack/gardener-extension-duros/pkg/apis/duros/install"
 	duroscmd "github.com/metal-stack/gardener-extension-duros/pkg/cmd"
@@ -31,8 +32,6 @@ import (
 )
 
 const ExtensionName = "extension-duros"
-
-var MgrScheme runtime.Scheme
 
 type Options struct {
 	generalOptions     *controllercmd.GeneralOptions
@@ -140,26 +139,16 @@ func (options *Options) run(ctx context.Context) error {
 	}
 	log.Info("completed rest-options")
 
-	err = durosv1.AddToScheme(mgr.GetScheme())
-	// spew.Dump(mgr.GetScheme().AllKnownTypes())
-	if err != nil {
-		return fmt.Errorf("could not add mgr-scheme to duros: %w", err)
+	for _, schemeFn := range []func(*runtime.Scheme) error{
+		firewallv1.AddToScheme,
+		durosv1.AddToScheme,
+		extensionscontroller.AddToScheme,
+		install.AddToScheme,
+	} {
+		if err := schemeFn(mgr.GetScheme()); err != nil {
+			return fmt.Errorf("could not add scheme: %w", err)
+		}
 	}
-	log.Info("added mgr-scheme to duros")
-
-	MgrScheme = *mgr.GetScheme()
-
-	err = extensionscontroller.AddToScheme(mgr.GetScheme())
-	if err != nil {
-		return fmt.Errorf("could not add mgr-scheme to extension-controller: %w", err)
-	}
-	log.Info("added mgr-scheme to extensionscontroller")
-
-	err = install.AddToScheme(mgr.GetScheme())
-	if err != nil {
-		return fmt.Errorf("could not add mgr-scheme to installation")
-	}
-	log.Info("added mgr-scheme to installation")
 
 	ctrlConfig := options.durosOptions.Completed()
 	ctrlConfig.Apply(&controller.DefaultAddOptions.Config)
