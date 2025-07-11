@@ -85,7 +85,7 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, ex *extension
 		return region.Name == cluster.Shoot.Spec.Region
 	})
 	if idx < 0 {
-		return fmt.Errorf("operator provided no duros configuration for region: %s")
+		return fmt.Errorf("operator provided no duros configuration for region: %s", cluster.Shoot.Spec.Region)
 	}
 
 	// TODO: should be renamed to zone config?
@@ -128,14 +128,10 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, ex *extension
 	if err != nil {
 		return err
 	}
+
 	log.Info("managed resource created successfully", "name", v1alpha1.SeedDurosControllerResourceName)
 
 	durosResourcesSeed, err := managedresources.NewRegistry(a.client.Scheme(), serializer.NewCodecFactory(a.client.Scheme()), kubernetes.SeedSerializer).AddAllAndSerialize(durosObjectsSeed...)
-	if err != nil {
-		return err
-	}
-
-	shootControlPlaneResources, err := managedresources.NewRegistry(kubernetes.ShootScheme, kubernetes.ShootCodec, kubernetes.ShootSerializer).AddAllAndSerialize(shootControlPlaneObjects...)
 	if err != nil {
 		return err
 	}
@@ -144,9 +140,15 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, ex *extension
 	if err != nil {
 		return err
 	}
+
 	log.Info("managed resource created successfully", "name", v1alpha1.SeedDurosResourceName)
 
-	err = managedresources.CreateForShoot(ctx, a.client, shootNamespace, v1alpha1.ShootDurosResourceName, "duros-extension", false, shootControlPlaneResources)
+	shootControlPlaneResources, err := managedresources.NewRegistry(kubernetes.ShootScheme, kubernetes.ShootCodec, kubernetes.ShootSerializer).AddAllAndSerialize(shootControlPlaneObjects...)
+	if err != nil {
+		return err
+	}
+
+	err = managedresources.CreateForShoot(ctx, a.client, ex.Namespace, v1alpha1.ShootDurosResourceName, "duros-extension", false, shootControlPlaneResources)
 	if err != nil {
 		return err
 	}
