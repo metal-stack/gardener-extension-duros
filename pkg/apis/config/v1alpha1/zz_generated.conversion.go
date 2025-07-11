@@ -12,7 +12,7 @@ package v1alpha1
 import (
 	unsafe "unsafe"
 
-	apisconfig "github.com/gardener/gardener/extensions/pkg/apis/config"
+	apisconfig "github.com/gardener/gardener/extensions/pkg/apis/config/v1alpha1"
 	configv1alpha1 "github.com/gardener/gardener/extensions/pkg/apis/config/v1alpha1"
 	config "github.com/metal-stack/gardener-extension-duros/pkg/apis/config"
 	conversion "k8s.io/apimachinery/pkg/conversion"

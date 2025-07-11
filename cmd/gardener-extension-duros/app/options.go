@@ -23,7 +23,8 @@ import (
 	"github.com/gardener/gardener/extensions/pkg/util"
 	"github.com/gardener/gardener/pkg/client/kubernetes"
 	ghealth "github.com/gardener/gardener/pkg/healthz"
-	componentbaseconfig "k8s.io/component-base/config"
+	componentbaseconfigv1alpha1 "k8s.io/component-base/config/v1alpha1"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -113,7 +114,7 @@ func (options *Options) run(ctx context.Context) error {
 	}
 	log.Info("applied duros-storage crd")
 
-	util.ApplyClientConnectionConfigurationToRESTConfig(&componentbaseconfig.ClientConnectionConfiguration{
+	util.ApplyClientConnectionConfigurationToRESTConfig(&componentbaseconfigv1alpha1.ClientConnectionConfiguration{
 		QPS:   100.0,
 		Burst: 130,
 	}, options.restOptions.Completed().Config)

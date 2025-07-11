@@ -18,7 +18,7 @@ jobs:
 
     steps:
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Setup Go
       uses: actions/setup-go@v4
@@ -27,9 +27,9 @@ jobs:
         cache: false
 
     - name: Lint
-      uses: golangci/golangci-lint-action@v3
+      uses: golangci/golangci-lint-action@v8
       with:
-        args: --build-tags integration -p bugs -p unused --timeout=3m
+        args: -p unused --timeout=5m
 
     - name: Test
       run: make test

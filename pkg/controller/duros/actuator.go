@@ -137,6 +137,7 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, ex *extension
 								Protocol: &tcp,
 							},
 						},
+						To: to,
 					},
 				}
 				return nil
@@ -227,7 +228,7 @@ func deleteDurosCustomResource(ctx context.Context, c client.Client, namespace s
 	}
 
 	if !durosResource.DeletionTimestamp.IsZero() {
-		return fmt.Errorf("duros-controller still cleaning up, requeue...")
+		return fmt.Errorf("duros-controller still cleaning up, requeue")
 	}
 
 	err = managedresources.DeleteForSeed(ctx, c, namespace, v1alpha1.SeedDurosResourceName)
@@ -235,7 +236,7 @@ func deleteDurosCustomResource(ctx context.Context, c client.Client, namespace s
 		return fmt.Errorf("unable to delete duros-CR: %w", err)
 	}
 
-	return fmt.Errorf("initializing deletion process of duros-CR, requeue...")
+	return fmt.Errorf("initializing deletion process of duros-CR, requeue")
 
 }
 

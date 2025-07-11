@@ -10,7 +10,7 @@
 package config
 
 import (
-	apisconfig "github.com/gardener/gardener/extensions/pkg/apis/config"
+	apisconfig "github.com/gardener/gardener/extensions/pkg/apis/config/v1alpha1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
