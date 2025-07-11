@@ -275,6 +275,9 @@ func (a *actuator) GetControllerObjectsForSeed(ctx context.Context, cluster *ext
 	if regionCfg.APIKey != "" {
 		secretMap["api-key"] = []byte(regionCfg.APIKey)
 	}
+	if regionCfg.APICert != "" {
+		secretMap["api-cert"] = []byte(regionCfg.APICert)
+	}
 	secret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "duros-admin",
