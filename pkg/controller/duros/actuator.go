@@ -92,7 +92,7 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, ex *extension
 		deployCWNPs = true
 	}
 
-	controllerObjectsSeed, err := a.GetControllerObjectsForSeed(ctx, cluster, regionCfg, *durosConfig, ex.Namespace)
+	controllerObjectsSeed, err := a.GetControllerObjectsForSeed(ctx, cluster, regionCfg, *durosConfig)
 	if err != nil {
 		return err
 	}
@@ -199,18 +199,18 @@ func (a *actuator) Migrate(ctx context.Context, log logr.Logger, ex *extensionsv
 	return nil
 }
 
-func (a *actuator) GetControllerObjectsForSeed(ctx context.Context, cluster *extensions.Cluster, regionCfg config.DurosRegionConfiguration, durosCfg v1alpha1.DurosConfig, extensionNamespace string) ([]client.Object, error) {
+func (a *actuator) GetControllerObjectsForSeed(ctx context.Context, cluster *extensions.Cluster, regionCfg config.DurosRegionConfiguration, durosCfg v1alpha1.DurosConfig) ([]client.Object, error) {
 	serviceAccount := corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "duros-controller",
-			Namespace: extensionNamespace,
+			Namespace: cluster.ObjectMeta.Name,
 		},
 	}
 
 	role := rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "duros-controller",
-			Namespace: extensionNamespace,
+			Namespace: cluster.ObjectMeta.Name,
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
@@ -229,7 +229,7 @@ func (a *actuator) GetControllerObjectsForSeed(ctx context.Context, cluster *ext
 	roleBinding := rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "duros-controller",
-			Namespace: extensionNamespace,
+			Namespace: cluster.ObjectMeta.Name,
 		},
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
@@ -240,7 +240,7 @@ func (a *actuator) GetControllerObjectsForSeed(ctx context.Context, cluster *ext
 			{
 				Kind:      "ServiceAccount",
 				Name:      "duros-controller",
-				Namespace: extensionNamespace,
+				Namespace: cluster.ObjectMeta.Name,
 			},
 		},
 	}
@@ -258,7 +258,7 @@ func (a *actuator) GetControllerObjectsForSeed(ctx context.Context, cluster *ext
 	secret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "duros-admin",
-			Namespace: extensionNamespace,
+			Namespace: cluster.ObjectMeta.Name,
 			Labels: map[string]string{
 				"app": "duros-controller",
 			},
@@ -289,7 +289,7 @@ func (a *actuator) GetControllerObjectsForSeed(ctx context.Context, cluster *ext
 		return nil, fmt.Errorf("unable to find duros-controller image: %w", err)
 	}
 
-	accessSecret := gutil.NewShootAccessSecret(deploymentName, extensionNamespace)
+	accessSecret := gutil.NewShootAccessSecret(deploymentName, cluster.ObjectMeta.Name)
 	err = accessSecret.Reconcile(ctx, a.client)
 	if err != nil {
 		return nil, fmt.Errorf("unable to reconcile shoot-access secret: %w", err)
@@ -298,7 +298,7 @@ func (a *actuator) GetControllerObjectsForSeed(ctx context.Context, cluster *ext
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "duros-controller",
-			Namespace: extensionNamespace,
+			Namespace: cluster.ObjectMeta.Name,
 			Labels: map[string]string{
 				"app":                        "duros-controller",
 				"app.kubernetes.io/instance": "gardener-extension-duros",
@@ -416,7 +416,7 @@ func (a *actuator) GetControllerObjectsForSeed(ctx context.Context, cluster *ext
 	networkPolicy := networkv1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "egress-from-duros-controller-to-storage",
-			Namespace: extensionNamespace,
+			Namespace: cluster.ObjectMeta.Name,
 		},
 		Spec: networkv1.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{
