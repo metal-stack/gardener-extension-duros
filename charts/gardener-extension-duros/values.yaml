@@ -36,21 +36,22 @@ config:
     contentType: application/json
     qps: 100
     burst: 130
+
   regionConfig:
-    local:
-      endpoints: []
-      adminKey: ""
-      adminToken: "some-token"
-      apiEndpoint: ""
-      apiCA: ""
-      apiCert: ""
-      apiKey: ""
-      qosPolicies:
-        - name: standard
-          qosType: 1
-          readWriteLimit:
-            readLimit: "256"
-            writeLimit: "256"
+    # local:
+    #   endpoints: []
+    #   adminKey: ""
+    #   adminToken: "some-token"
+    #   apiEndpoint: ""
+    #   apiCA: ""
+    #   apiCert: ""
+    #   apiKey: ""
+    #   qosPolicies:
+    #     - name: standard
+    #       qosType: 1
+    #       readWriteLimit:
+    #         readLimit: "256"
+    #         writeLimit: "256"
 
 gardener:
   version: ""

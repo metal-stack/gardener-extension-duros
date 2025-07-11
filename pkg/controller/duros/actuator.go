@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	firewallv1 "github.com/metal-stack/firewall-controller/v2/api/v1"
 
 	"github.com/gardener/gardener/extensions/pkg/controller/extension"
@@ -82,6 +83,9 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, ex *extension
 	region := cluster.Shoot.Spec.Region
 	regionCfg := a.config.RegionConfig[region]
 
+	spew.Dump(a.config.RegionConfig)
+	log.Info("using region", "region", region)
+
 	deployCWNPs := false
 	cwnpCrd := &apiextensionsv1.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
@@ -103,7 +107,7 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, ex *extension
 	if err != nil {
 		return err
 	}
-	log.Info("1")
+
 	err = managedresources.CreateForSeed(ctx, a.client, ex.Namespace, v1alpha1.SeedDurosControllerResourceName, false, controllerResourcesSeed)
 	if err != nil {
 		return err
@@ -316,7 +320,6 @@ func (a *actuator) GetControllerObjectsForSeed(ctx context.Context, cluster *ext
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "duros-controller",
 					Labels: map[string]string{
-
 						"networking.gardener.cloud/from-prometheus":                     "allowed",
 						"networking.gardener.cloud/to-dns":                              "allowed",
 						"networking.gardener.cloud/to-shoot-apiserver":                  "allowed",
