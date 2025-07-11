@@ -292,7 +292,7 @@ func (a *actuator) GetControllerObjectsForSeed(ctx context.Context, cluster *ext
 	accessSecret := gutil.NewShootAccessSecret(deploymentName, extensionNamespace)
 	err = accessSecret.Reconcile(ctx, a.client)
 	if err != nil {
-		return nil, fmt.Errorf("unable to reconcile shoot-access secret")
+		return nil, fmt.Errorf("unable to reconcile shoot-access secret: %w", err)
 	}
 
 	deployment := appsv1.Deployment{
