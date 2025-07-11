@@ -604,7 +604,7 @@ func (a *actuator) shootControlPlaneObjects() []client.Object {
 		},
 		Subjects: []rbacv1.Subject{
 			{
-				Kind:      "serviceaccount",
+				Kind:      "ServiceAccount",
 				Name:      "duros-controller",
 				Namespace: shootNamespace,
 			},
