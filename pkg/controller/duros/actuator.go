@@ -3,16 +3,17 @@ package duros
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	firewallv1 "github.com/metal-stack/firewall-controller/v2/api/v1"
 
 	"github.com/gardener/gardener/extensions/pkg/controller/extension"
 	"github.com/gardener/gardener/pkg/controllerutils/reconciler"
 
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
+	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/gardener/gardener/pkg/client/kubernetes"
 	"github.com/gardener/gardener/pkg/extensions"
@@ -80,11 +81,26 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, ex *extension
 		}
 	}
 
-	region := cluster.Shoot.Spec.Region
-	regionCfg := a.config.RegionConfig[region]
+	idx := slices.IndexFunc(cluster.CloudProfile.Spec.Regions, func(region v1beta1.Region) bool {
+		return region.Name == cluster.Shoot.Spec.Region
+	})
+	if idx < 0 {
+		return fmt.Errorf("operator provided no duros configuration for region: %s")
+	}
 
-	spew.Dump(a.config.RegionConfig)
-	log.Info("using region", "region", region)
+	// TODO: should be renamed to zone config?
+	var zoneCfg *config.DurosRegionConfiguration
+	for _, zone := range cluster.CloudProfile.Spec.Regions[idx].Zones {
+		z, ok := a.config.RegionConfig[zone.Name]
+		if ok {
+			zoneCfg = &z
+			break
+		}
+	}
+
+	if zoneCfg == nil {
+		return fmt.Errorf("operator provided no duros configuration for this zone")
+	}
 
 	deployCWNPs := false
 	cwnpCrd := &apiextensionsv1.CustomResourceDefinition{
@@ -96,11 +112,11 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, ex *extension
 		deployCWNPs = true
 	}
 
-	controllerObjectsSeed, err := a.GetControllerObjectsForSeed(ctx, cluster, regionCfg, *durosConfig)
+	controllerObjectsSeed, err := a.GetControllerObjectsForSeed(ctx, cluster, *zoneCfg, *durosConfig)
 	if err != nil {
 		return err
 	}
-	durosObjectsSeed := a.GetDurosObjectsForSeed(durosConfig, &regionCfg, deployCWNPs)
+	durosObjectsSeed := a.GetDurosObjectsForSeed(durosConfig, zoneCfg, deployCWNPs)
 	shootControlPlaneObjects := a.shootControlPlaneObjects()
 
 	controllerResourcesSeed, err := managedresources.NewRegistry(a.client.Scheme(), serializer.NewCodecFactory(a.client.Scheme()), kubernetes.SeedSerializer).AddAllAndSerialize(controllerObjectsSeed...)
