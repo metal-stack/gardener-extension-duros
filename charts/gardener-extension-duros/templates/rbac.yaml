@@ -57,14 +57,6 @@ rules:
   - create
   - delete
 - apiGroups:
-  - "storage.k8s.io"
-  resources:
-  - storageclasses
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
   - ""
   resources:
   - events
@@ -90,20 +82,10 @@ rules:
   verbs:
   - update
   - get
-# dns records seem to be a regression?
 - apiGroups:
-  - extensions.gardener.cloud
+  - apiextensions.k8s.io
   resources:
-  - dnsrecords
-  - dnsrecords/status
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - apiextensions.k8s.io 
-  resources:
-  - customresourcedefinitions 
+  - customresourcedefinitions
   verbs:
   - "*"
 ---

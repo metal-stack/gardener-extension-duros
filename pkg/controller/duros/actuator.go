@@ -26,10 +26,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/client-go/rest"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	durosv1 "github.com/metal-stack/duros-controller/api/v1"
@@ -37,9 +35,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networkv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -84,75 +82,21 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, ex *extension
 	region := cluster.Shoot.Spec.Region
 	regionCfg := a.config.RegionConfig[region]
 
-	config, err := rest.InClusterConfig()
-	if err != nil {
-		return fmt.Errorf("unable to get k8s client config: %w", err)
+	deployCWNPs := false
+	cwnpCrd := &apiextensionsv1.CustomResourceDefinition{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: clusterWideNetworkPolicyCRD,
+		},
 	}
-
-	crdClientSet, err := clientset.NewForConfig(config)
-	if err != nil {
-		return fmt.Errorf("unable to create crd-client: %w", err)
-	}
-
-	crdList, err := crdClientSet.ApiextensionsV1().CustomResourceDefinitions().List(ctx, v1.ListOptions{})
-	if err != nil {
-		return fmt.Errorf("unable to list crds: %w", err)
-	}
-
-	// test for metal-stack crd in order to create firewall policy
-	for _, crd := range crdList.Items {
-		if crd.GetName() == clusterWideNetworkPolicyCRD {
-			cp := &firewallv1.ClusterwideNetworkPolicy{ObjectMeta: v1.ObjectMeta{
-				Name:      "allow-to-storage",
-				Namespace: "firewall",
-			},
-			}
-			_, err = controllerutil.CreateOrUpdate(ctx, a.client, cp, func() error {
-				var to []networkv1.IPBlock
-				for _, e := range regionCfg.Endpoints {
-					withoutPort := strings.Split(e, ":")
-					to = append(to, networkv1.IPBlock{
-						CIDR: withoutPort[0] + "/32",
-					})
-				}
-
-				port443 := intstr.FromInt(443)
-				port4420 := intstr.FromInt(4420)
-				port8009 := intstr.FromInt(8009)
-				tcp := corev1.ProtocolTCP
-
-				cp.Spec.Egress = []firewallv1.EgressRule{
-					{
-						Ports: []networkv1.NetworkPolicyPort{
-							{
-								Port:     &port443,
-								Protocol: &tcp,
-							},
-							{
-								Port:     &port4420,
-								Protocol: &tcp,
-							},
-							{
-								Port:     &port8009,
-								Protocol: &tcp,
-							},
-						},
-						To: to,
-					},
-				}
-				return nil
-			})
-			if err != nil {
-				return fmt.Errorf("unable to deploy clusterwide network policy for duros storage into firewall namespace %w", err)
-			}
-		}
+	if err := a.client.Get(ctx, client.ObjectKeyFromObject(cwnpCrd), cwnpCrd); err == nil {
+		deployCWNPs = true
 	}
 
 	controllerObjectsSeed, err := a.GetControllerObjectsForSeed(ctx, cluster, regionCfg, *durosConfig, ex.Namespace)
 	if err != nil {
 		return err
 	}
-	durosObjectsSeed := a.GetDurosObjectsForSeed(*durosConfig)
+	durosObjectsSeed := a.GetDurosObjectsForSeed(durosConfig, &regionCfg, deployCWNPs)
 	shootControlPlaneObjects := a.shootControlPlaneObjects()
 
 	controllerResourcesSeed, err := managedresources.NewRegistry(a.client.Scheme(), serializer.NewCodecFactory(a.client.Scheme()), kubernetes.SeedSerializer).AddAllAndSerialize(controllerObjectsSeed...)
@@ -214,7 +158,7 @@ func (a *actuator) Delete(ctx context.Context, log logr.Logger, ex *extensionsv1
 
 func deleteDurosCustomResource(ctx context.Context, c client.Client, namespace string) error {
 	durosResource := durosv1.Duros{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name: "duros-controller",
 		},
 	}
@@ -257,14 +201,14 @@ func (a *actuator) Migrate(ctx context.Context, log logr.Logger, ex *extensionsv
 
 func (a *actuator) GetControllerObjectsForSeed(ctx context.Context, cluster *extensions.Cluster, regionCfg config.DurosRegionConfiguration, durosCfg v1alpha1.DurosConfig, extensionNamespace string) ([]client.Object, error) {
 	serviceAccount := corev1.ServiceAccount{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      "duros-controller",
 			Namespace: extensionNamespace,
 		},
 	}
 
 	role := rbacv1.ClusterRole{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      "duros-controller",
 			Namespace: extensionNamespace,
 		},
@@ -283,7 +227,7 @@ func (a *actuator) GetControllerObjectsForSeed(ctx context.Context, cluster *ext
 	}
 
 	roleBinding := rbacv1.ClusterRoleBinding{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      "duros-controller",
 			Namespace: extensionNamespace,
 		},
@@ -312,7 +256,7 @@ func (a *actuator) GetControllerObjectsForSeed(ctx context.Context, cluster *ext
 		secretMap["api-key"] = []byte(regionCfg.APIKey)
 	}
 	secret := corev1.Secret{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      "duros-admin",
 			Namespace: extensionNamespace,
 			Labels: map[string]string{
@@ -352,7 +296,7 @@ func (a *actuator) GetControllerObjectsForSeed(ctx context.Context, cluster *ext
 	}
 
 	deployment := appsv1.Deployment{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      "duros-controller",
 			Namespace: extensionNamespace,
 			Labels: map[string]string{
@@ -361,7 +305,7 @@ func (a *actuator) GetControllerObjectsForSeed(ctx context.Context, cluster *ext
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
-			Selector: &v1.LabelSelector{
+			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"app":                        "duros-controller",
 					"app.kubernetes.io/instance": "gardener-extension-duros",
@@ -369,7 +313,7 @@ func (a *actuator) GetControllerObjectsForSeed(ctx context.Context, cluster *ext
 			},
 			Replicas: nil,
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name: "duros-controller",
 					Labels: map[string]string{
 
@@ -470,12 +414,12 @@ func (a *actuator) GetControllerObjectsForSeed(ctx context.Context, cluster *ext
 	}
 
 	networkPolicy := networkv1.NetworkPolicy{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      "egress-from-duros-controller-to-storage",
 			Namespace: extensionNamespace,
 		},
 		Spec: networkv1.NetworkPolicySpec{
-			PodSelector: v1.LabelSelector{
+			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"app": "duros-controller",
 				},
@@ -523,7 +467,7 @@ func (a *actuator) GetControllerObjectsForSeed(ctx context.Context, cluster *ext
 	return objects, nil
 }
 
-func (a *actuator) GetDurosObjectsForSeed(durosCfg v1alpha1.DurosConfig) []client.Object {
+func (a *actuator) GetDurosObjectsForSeed(durosCfg *v1alpha1.DurosConfig, regionConfig *config.DurosRegionConfiguration, deployCWNPs bool) []client.Object {
 	var scs []durosv1.StorageClass
 	for _, sc := range durosCfg.StorageClasses {
 		scs = append(scs, durosv1.StorageClass{
@@ -535,13 +479,50 @@ func (a *actuator) GetDurosObjectsForSeed(durosCfg v1alpha1.DurosConfig) []clien
 		})
 	}
 	durosStorage := durosv1.Duros{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name: "duros-controller",
 		},
 		Spec: durosv1.DurosSpec{
 			MetalProjectID: durosCfg.ProjectID,
 			StorageClasses: scs,
 		},
+	}
+
+	if deployCWNPs {
+		cp := &firewallv1.ClusterwideNetworkPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "allow-to-storage",
+				Namespace: "firewall",
+			},
+		}
+
+		var to []networkv1.IPBlock
+		for _, e := range regionConfig.Endpoints {
+			withoutPort := strings.Split(e, ":")
+			to = append(to, networkv1.IPBlock{
+				CIDR: withoutPort[0] + "/32",
+			})
+		}
+
+		cp.Spec.Egress = []firewallv1.EgressRule{
+			{
+				Ports: []networkv1.NetworkPolicyPort{
+					{
+						Port:     ptr.To(intstr.FromInt(443)),
+						Protocol: ptr.To(corev1.ProtocolTCP),
+					},
+					{
+						Port:     ptr.To(intstr.FromInt(4420)),
+						Protocol: ptr.To(corev1.ProtocolTCP),
+					},
+					{
+						Port:     ptr.To(intstr.FromInt(8009)),
+						Protocol: ptr.To(corev1.ProtocolTCP),
+					},
+				},
+				To: to,
+			},
+		}
 	}
 
 	objects := []client.Object{
@@ -554,7 +535,7 @@ func (a *actuator) GetDurosObjectsForSeed(durosCfg v1alpha1.DurosConfig) []clien
 func (a *actuator) shootControlPlaneObjects() []client.Object {
 
 	role := rbacv1.ClusterRole{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      "duros-controller",
 			Namespace: shootNamespace,
 		},
@@ -593,7 +574,7 @@ func (a *actuator) shootControlPlaneObjects() []client.Object {
 	}
 
 	roleBinding := rbacv1.ClusterRoleBinding{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      "duros-controller",
 			Namespace: shootNamespace,
 		},
