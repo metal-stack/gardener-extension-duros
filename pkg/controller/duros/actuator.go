@@ -293,8 +293,8 @@ func (a *actuator) GetControllerObjectsForSeed(ctx context.Context, cluster *ext
 	}
 
 	durosControllerArgs := []string{
-		"-endpoints=" + strings.Join(regionCfg.Endpoints, ","),
-		"-namespace=",
+		fmt.Sprintf("-endpoints=%s", strings.Join(regionCfg.Endpoints, ",")),
+		fmt.Sprintf("-namespace=%s", cluster.ObjectMeta.Name),
 		"-enable-leader-election",
 		"-admin-token=/duros/admin-token",
 		"-admin-key=/duros/admin-key",
