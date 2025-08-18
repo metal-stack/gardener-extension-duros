@@ -567,7 +567,7 @@ func (a *actuator) shootControlPlaneObjects() []client.Object {
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
-				APIGroups: []string{"shanpshot.storage.k8s.io"},
+				APIGroups: []string{"snapshot.storage.k8s.io"},
 				Resources: []string{"volumesnapshotclasses", "volumesnapshotcontents", "volumesnapshotcontents/status", "volumesnapshots", "volumesnapshots/status"},
 				Verbs:     []string{"create", "delete", "get", "list", "patch", "update", "watch"},
 			},
