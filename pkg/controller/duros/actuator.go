@@ -229,7 +229,7 @@ func (a *actuator) GetControllerObjectsForSeed(ctx context.Context, cluster *ext
 		},
 	}
 
-	role := rbacv1.ClusterRole{
+	role := rbacv1.Role{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "duros-controller",
 			Namespace: cluster.ObjectMeta.Name,
@@ -248,14 +248,14 @@ func (a *actuator) GetControllerObjectsForSeed(ctx context.Context, cluster *ext
 		},
 	}
 
-	roleBinding := rbacv1.ClusterRoleBinding{
+	roleBinding := rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "duros-controller",
 			Namespace: cluster.ObjectMeta.Name,
 		},
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
-			Kind:     "ClusterRole",
+			Kind:     "Role",
 			Name:     "duros-controller",
 		},
 		Subjects: []rbacv1.Subject{
@@ -493,6 +493,7 @@ func (a *actuator) GetControllerObjectsForSeed(ctx context.Context, cluster *ext
 
 func (a *actuator) GetDurosObjectsForSeed(durosCfg *v1alpha1.DurosConfig, regionConfig *config.DurosRegionConfiguration, deployCWNPs bool) []client.Object {
 	var scs []durosv1.StorageClass
+
 	for _, sc := range durosCfg.StorageClasses {
 		scs = append(scs, durosv1.StorageClass{
 			Name:         sc.Name,
@@ -502,6 +503,7 @@ func (a *actuator) GetDurosObjectsForSeed(durosCfg *v1alpha1.DurosConfig, region
 			Default:      sc.Default,
 		})
 	}
+
 	durosStorage := durosv1.Duros{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "duros-controller",
@@ -521,6 +523,7 @@ func (a *actuator) GetDurosObjectsForSeed(durosCfg *v1alpha1.DurosConfig, region
 		}
 
 		var to []networkv1.IPBlock
+
 		for _, e := range regionConfig.Endpoints {
 			withoutPort := strings.Split(e, ":")
 			to = append(to, networkv1.IPBlock{
@@ -557,7 +560,6 @@ func (a *actuator) GetDurosObjectsForSeed(durosCfg *v1alpha1.DurosConfig, region
 }
 
 func (a *actuator) shootControlPlaneObjects() []client.Object {
-
 	role := rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "duros-controller",
