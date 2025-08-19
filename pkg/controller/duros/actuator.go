@@ -224,12 +224,12 @@ func deleteDurosCustomResource(ctx context.Context, c client.Client, namespace s
 		},
 	}
 	err := c.Get(ctx, client.ObjectKeyFromObject(&durosResource), &durosResource)
-	if err != nil && !apierrors.IsNotFound(err) {
-		return nil
-	}
-
 	if err != nil {
-		return fmt.Errorf("unable to get duros-CR: %w", err)
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+
+		return fmt.Errorf("unable to get duros cr: %w", err)
 	}
 
 	if !durosResource.DeletionTimestamp.IsZero() {
@@ -238,10 +238,10 @@ func deleteDurosCustomResource(ctx context.Context, c client.Client, namespace s
 
 	err = managedresources.DeleteForSeed(ctx, c, namespace, v1alpha1.SeedDurosResourceName)
 	if err != nil {
-		return fmt.Errorf("unable to delete duros-CR: %w", err)
+		return fmt.Errorf("unable to delete duros managed resource: %w", err)
 	}
 
-	return fmt.Errorf("initializing deletion process of duros-CR, requeue")
+	return fmt.Errorf("initializing deletion process of duros cr, requeue")
 
 }
 
