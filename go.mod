@@ -17,7 +17,6 @@ require (
 	k8s.io/api v0.32.2
 	k8s.io/apiextensions-apiserver v0.32.2
 	k8s.io/apimachinery v0.32.3
-	k8s.io/client-go v0.32.2
 	k8s.io/code-generator v0.32.2
 	k8s.io/component-base v0.32.2
 	k8s.io/utils v0.0.0-20241210054802-24370beab758
@@ -124,6 +123,7 @@ require (
 	istio.io/api v1.24.3 // indirect
 	istio.io/client-go v1.24.2 // indirect
 	k8s.io/autoscaler/vertical-pod-autoscaler v1.2.2 // indirect
+	k8s.io/client-go v0.32.2 // indirect
 	k8s.io/gengo v0.0.0-20230829151522-9cce18d56c01 // indirect
 	k8s.io/gengo/v2 v2.0.0-20240911193312-2b36238f13e9 // indirect
 	k8s.io/klog v1.0.0 // indirect
