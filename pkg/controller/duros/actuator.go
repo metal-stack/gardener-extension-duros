@@ -149,14 +149,14 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, ex *extension
 		}
 	}
 
-	controllerObjectsSeed, err := a.GetControllerObjectsForSeed(ctx, cluster, &regionCfg, durosConfig)
+	seedObjects, err := a.getSeedObjects(ctx, cluster, &regionCfg, durosConfig)
 	if err != nil {
 		return err
 	}
-	durosObjectsSeed := a.GetDurosObjectsForSeed(durosConfig, &regionCfg, ex.Namespace)
-	shootControlPlaneObjects := a.shootControlPlaneObjects()
+	durosObject := a.getSeedDurosObject(durosConfig, &regionCfg, ex.Namespace)
+	shootObjects := a.getShootObjects()
 
-	controllerResourcesSeed, err := managedresources.NewRegistry(a.client.Scheme(), serializer.NewCodecFactory(a.client.Scheme()), kubernetes.SeedSerializer).AddAllAndSerialize(controllerObjectsSeed...)
+	controllerResourcesSeed, err := managedresources.NewRegistry(a.client.Scheme(), serializer.NewCodecFactory(a.client.Scheme()), kubernetes.SeedSerializer).AddAllAndSerialize(seedObjects...)
 	if err != nil {
 		return err
 	}
@@ -168,7 +168,7 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, ex *extension
 
 	log.Info("managed resource created successfully", "name", v1alpha1.SeedDurosControllerResourceName)
 
-	durosResourcesSeed, err := managedresources.NewRegistry(a.client.Scheme(), serializer.NewCodecFactory(a.client.Scheme()), kubernetes.SeedSerializer).AddAllAndSerialize(durosObjectsSeed...)
+	durosResourcesSeed, err := managedresources.NewRegistry(a.client.Scheme(), serializer.NewCodecFactory(a.client.Scheme()), kubernetes.SeedSerializer).AddAllAndSerialize(durosObject...)
 	if err != nil {
 		return err
 	}
@@ -180,7 +180,7 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, ex *extension
 
 	log.Info("managed resource created successfully", "name", v1alpha1.SeedDurosResourceName)
 
-	shootControlPlaneResources, err := managedresources.NewRegistry(kubernetes.ShootScheme, kubernetes.ShootCodec, kubernetes.ShootSerializer).AddAllAndSerialize(shootControlPlaneObjects...)
+	shootControlPlaneResources, err := managedresources.NewRegistry(kubernetes.ShootScheme, kubernetes.ShootCodec, kubernetes.ShootSerializer).AddAllAndSerialize(shootObjects...)
 	if err != nil {
 		return err
 	}
@@ -259,7 +259,7 @@ func (a *actuator) Migrate(ctx context.Context, log logr.Logger, ex *extensionsv
 	return nil
 }
 
-func (a *actuator) GetControllerObjectsForSeed(ctx context.Context, cluster *extensions.Cluster, regionCfg *config.DurosRegionConfiguration, durosCfg *v1alpha1.DurosConfig) ([]client.Object, error) {
+func (a *actuator) getSeedObjects(ctx context.Context, cluster *extensions.Cluster, regionCfg *config.DurosRegionConfiguration, durosCfg *v1alpha1.DurosConfig) ([]client.Object, error) {
 	serviceAccount := corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "duros-controller",
@@ -529,7 +529,7 @@ func (a *actuator) GetControllerObjectsForSeed(ctx context.Context, cluster *ext
 	return objects, nil
 }
 
-func (a *actuator) GetDurosObjectsForSeed(durosCfg *v1alpha1.DurosConfig, regionCfg *config.DurosRegionConfiguration, namespace string) []client.Object {
+func (a *actuator) getSeedDurosObject(durosCfg *v1alpha1.DurosConfig, regionCfg *config.DurosRegionConfiguration, namespace string) []client.Object {
 	var scs []durosv1.StorageClass
 
 	for _, sc := range durosCfg.StorageClasses {
@@ -544,7 +544,7 @@ func (a *actuator) GetDurosObjectsForSeed(durosCfg *v1alpha1.DurosConfig, region
 
 	durosStorage := durosv1.Duros{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "duros-controller",
+			Name:      "shoot-default-storage",
 			Namespace: namespace,
 		},
 		Spec: durosv1.DurosSpec{
@@ -560,7 +560,7 @@ func (a *actuator) GetDurosObjectsForSeed(durosCfg *v1alpha1.DurosConfig, region
 	return objects
 }
 
-func (a *actuator) shootControlPlaneObjects() []client.Object {
+func (a *actuator) getShootObjects() []client.Object {
 	role := rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "duros-controller",
