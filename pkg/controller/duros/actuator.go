@@ -102,7 +102,7 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, ex *extension
 		},
 	}
 	if err := a.client.Get(ctx, client.ObjectKeyFromObject(cwnpCrd), cwnpCrd); err == nil {
-		log.Info("detected metal-stack cwnp crd, deploying cwnps to seed as well")
+		log.Info("detected metal-stack cwnp crd, deploying cwnps to seed")
 
 		cwnp := &firewallv1.ClusterwideNetworkPolicy{
 			ObjectMeta: metav1.ObjectMeta{
@@ -120,7 +120,7 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, ex *extension
 			})
 		}
 
-		controllerutil.CreateOrUpdate(ctx, a.client, cwnp, func() error {
+		_, err = controllerutil.CreateOrUpdate(ctx, a.client, cwnp, func() error {
 			cwnp.Spec.Egress = []firewallv1.EgressRule{
 				{
 					Ports: []networkv1.NetworkPolicyPort{
@@ -143,6 +143,10 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, ex *extension
 
 			return nil
 		})
+
+		if err != nil {
+			return fmt.Errorf("unable to ensure cwnps: %w", err)
+		}
 	}
 
 	controllerObjectsSeed, err := a.GetControllerObjectsForSeed(ctx, cluster, &regionCfg, durosConfig)
