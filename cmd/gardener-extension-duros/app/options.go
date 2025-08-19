@@ -35,7 +35,7 @@ const ExtensionName = "extension-duros"
 
 type Options struct {
 	generalOptions     *controllercmd.GeneralOptions
-	durosOptions       *duroscmd.AuthOptions
+	durosOptions       *duroscmd.DurosOptions
 	restOptions        *controllercmd.RESTOptions
 	managerOptions     *controllercmd.ManagerOptions
 	controllerOptions  *controllercmd.ControllerOptions
@@ -49,7 +49,7 @@ type Options struct {
 func NewOptions() *Options {
 	options := &Options{
 		generalOptions: &controllercmd.GeneralOptions{},
-		durosOptions:   &duroscmd.AuthOptions{},
+		durosOptions:   &duroscmd.DurosOptions{},
 		restOptions:    &controllercmd.RESTOptions{},
 		managerOptions: &controllercmd.ManagerOptions{
 			LeaderElection:          true,
@@ -102,17 +102,6 @@ func NewOptions() *Options {
 func (options *Options) run(ctx context.Context) error {
 	log.Info("starting " + ExtensionName)
 
-	ca, err := kubernetes.NewChartApplierForConfig(options.restOptions.Completed().Config)
-	if err != nil {
-		return fmt.Errorf("error creating chart-renderer: %w", err)
-	}
-
-	err = ca.ApplyFromEmbeddedFS(ctx, charts.InternalChart, filepath.Join("internal", "crds-storage"), "", "crds-storage")
-	if err != nil {
-		return fmt.Errorf("error applying crds-storage chart: %w", err)
-	}
-	log.Info("applied duros-storage crd")
-
 	util.ApplyClientConnectionConfigurationToRESTConfig(&componentbaseconfigv1alpha1.ClientConnectionConfiguration{
 		QPS:   100.0,
 		Burst: 130,
@@ -156,6 +145,18 @@ func (options *Options) run(ctx context.Context) error {
 	options.controllerOptions.Completed().Apply(&controller.DefaultAddOptions.ControllerOptions)
 	options.reconcileOptions.Completed().Apply(&controller.DefaultAddOptions.IgnoreOperationAnnotation, &controller.DefaultAddOptions.ExtensionClass)
 	options.heartbeatOptions.Completed().Apply(&heartbeatcontroller.DefaultAddOptions)
+
+	ca, err := kubernetes.NewChartApplierForConfig(options.restOptions.Completed().Config)
+	if err != nil {
+		return fmt.Errorf("error creating chart-renderer: %w", err)
+	}
+
+	err = ca.ApplyFromEmbeddedFS(ctx, charts.InternalChart, filepath.Join("internal", "crds-storage"), "", "crds-storage")
+	if err != nil {
+		return fmt.Errorf("error applying crds-storage chart: %w", err)
+	}
+
+	log.Info("applied duros-storage crd")
 
 	if err := options.controllerSwitches.Completed().AddToManager(ctx, mgr); err != nil {
 		return fmt.Errorf("could not add controllers to manager: %w", err)
