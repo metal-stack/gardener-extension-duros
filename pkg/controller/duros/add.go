@@ -9,11 +9,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/metal-stack/gardener-extension-duros/pkg/apis/config"
+	"github.com/metal-stack/gardener-extension-duros/pkg/constants"
 )
 
 const (
-	// Type is the type of Extension resource.
-	Type = "duros"
 	// ControllerName is the name of the registry cache service controller.
 	ControllerName = "duros"
 	// FinalizerSuffix is the finalizer suffix for the registry cache service controller.
@@ -52,6 +51,6 @@ func AddToManagerWithOptions(ctx context.Context, mgr manager.Manager, opts AddO
 		FinalizerSuffix:   FinalizerSuffix,
 		Resync:            0,
 		Predicates:        extension.DefaultPredicates(ctx, mgr, DefaultAddOptions.IgnoreOperationAnnotation),
-		Type:              Type,
+		Type:              constants.ExtensionType,
 	})
 }

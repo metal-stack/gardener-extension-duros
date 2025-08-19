@@ -23,6 +23,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/metal-stack/gardener-extension-duros/pkg/apis/config"
 	"github.com/metal-stack/gardener-extension-duros/pkg/apis/duros/v1alpha1"
+	"github.com/metal-stack/gardener-extension-duros/pkg/constants"
 	"github.com/metal-stack/gardener-extension-duros/pkg/imagevector"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -544,7 +545,7 @@ func (a *actuator) getSeedDurosObject(durosCfg *v1alpha1.DurosConfig, regionCfg 
 
 	durosStorage := durosv1.Duros{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "shoot-default-storage",
+			Name:      constants.DurosResourceName,
 			Namespace: namespace,
 		},
 		Spec: durosv1.DurosSpec{
