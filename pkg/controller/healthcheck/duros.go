@@ -2,8 +2,8 @@ package healthcheck
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/gardener/gardener/extensions/pkg/controller/healthcheck"
@@ -62,12 +62,15 @@ func (healthChecker *DurosHealthChecker) Check(ctx context.Context, request type
 			}, nil
 		}
 
-		err := fmt.Errorf("check duros resource failed. Unable to retrieve duros resource '%s' in namespace '%s': %w", healthChecker.durosResourceName, request.Namespace, err)
+		err := fmt.Errorf("check duros resource failed. unable to retrieve duros resource '%s' in namespace '%s': %w", healthChecker.durosResourceName, request.Namespace, err)
+
 		healthChecker.logger.Error(err, "Health check failed")
+
 		return nil, err
 	}
-	if isHealthy, err := durosIsHealthy(duros); !isHealthy {
+	if err := durosIsHealthy(duros); err != nil {
 		healthChecker.logger.Error(err, "Health check failed")
+
 		return &healthcheck.SingleCheckResult{
 			Status: gardencorev1beta1.ConditionFalse,
 			Detail: err.Error(),
@@ -79,21 +82,21 @@ func (healthChecker *DurosHealthChecker) Check(ctx context.Context, request type
 	}, nil
 }
 
-func durosIsHealthy(duros *durosv1.Duros) (bool, error) {
+func durosIsHealthy(duros *durosv1.Duros) error {
 	if duros == nil {
-		return false, fmt.Errorf("duros resource not deployed")
+		return fmt.Errorf("duros resource not deployed")
 	}
 
-	var problems []string
+	var errs []error
 
 	if duros.Status.ReconcileStatus.LastReconcile == nil {
-		problems = append(problems, "controller does not reconcile duros resource")
+		errs = append(errs, fmt.Errorf("controller does not reconcile duros resource"))
 	} else if since := time.Since(duros.Status.ReconcileStatus.LastReconcile.Time); since > 30*time.Minute {
-		problems = append(problems, fmt.Sprintf("controller has not reconciled for more than 30 minutes, stopped since %s", since.String()))
+		errs = append(errs, fmt.Errorf("controller has not reconciled for more than 30 minutes, stopped since %s", since.String()))
 	}
 
 	if duros.Status.ReconcileStatus.Error != nil {
-		problems = append(problems, fmt.Sprintf("reconcile error: %s (at %s)", *duros.Status.ReconcileStatus.Error, ptr.Deref(duros.Status.ReconcileStatus.LastReconcile, metav1.Time{}).String()))
+		errs = append(errs, fmt.Errorf("reconcile error: %s (at %s)", *duros.Status.ReconcileStatus.Error, ptr.Deref(duros.Status.ReconcileStatus.LastReconcile, metav1.Time{}).String()))
 	}
 
 	for _, r := range duros.Status.ManagedResourceStatuses {
@@ -101,13 +104,8 @@ func durosIsHealthy(duros *durosv1.Duros) (bool, error) {
 			continue
 		}
 
-		problems = append(problems, fmt.Sprintf("%s is not running because: %s", r.Name, r.Description))
+		errs = append(errs, fmt.Errorf("%s is not running because: %s", r.Name, r.Description))
 	}
 
-	if len(problems) > 0 {
-		err := fmt.Errorf("duros resource %s in namespace %s is unhealthy: %v", duros.Name, duros.Namespace, strings.Join(problems, ", "))
-		return false, err
-	}
-
-	return true, nil
+	return errors.Join(errs...)
 }
