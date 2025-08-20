@@ -197,6 +197,8 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, ex *extension
 
 // Delete the Extension resource.
 func (a *actuator) Delete(ctx context.Context, log logr.Logger, ex *extensionsv1alpha1.Extension) error {
+	log.Info("deleting duros managed resource")
+
 	err := deleteDurosCustomResource(ctx, a.client, ex.Namespace)
 	if err != nil {
 		return &reconciler.RequeueAfterError{
@@ -204,11 +206,33 @@ func (a *actuator) Delete(ctx context.Context, log logr.Logger, ex *extensionsv1
 			RequeueAfter: 30 * time.Second,
 		}
 	}
+
+	log.Info("deleting shoot managed resource")
+
+	err = managedresources.DeleteForShoot(ctx, a.client, ex.Namespace, v1alpha1.ShootDurosResourceName)
+	if err != nil {
+		return err
+	}
+
+	timeoutCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	defer cancel()
+
+	err = managedresources.WaitUntilDeleted(timeoutCtx, a.client, ex.Namespace, v1alpha1.ShootDurosResourceName)
+	if err != nil {
+		return err
+	}
+
+	log.Info("deleting seed managed resource")
+
 	err = managedresources.DeleteForSeed(ctx, a.client, ex.Namespace, v1alpha1.SeedDurosControllerResourceName)
 	if err != nil {
 		return err
 	}
-	err = managedresources.DeleteForShoot(ctx, a.client, shootNamespace, v1alpha1.ShootDurosResourceName)
+
+	timeoutCtx2, cancel2 := context.WithTimeout(ctx, 2*time.Minute)
+	defer cancel2()
+
+	err = managedresources.WaitUntilDeleted(timeoutCtx2, a.client, ex.Namespace, v1alpha1.SeedDurosControllerResourceName)
 	if err != nil {
 		return err
 	}
