@@ -237,6 +237,8 @@ func (a *actuator) Delete(ctx context.Context, log logr.Logger, ex *extensionsv1
 		return err
 	}
 
+	log.Info("successfully deleted managed resources")
+
 	return nil
 }
 
