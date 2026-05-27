@@ -19,6 +19,7 @@ import (
 	heartbeatcontroller "github.com/gardener/gardener/extensions/pkg/controller/heartbeat"
 	heartbeatcmd "github.com/gardener/gardener/extensions/pkg/controller/heartbeat/cmd"
 	controller "github.com/metal-stack/gardener-extension-duros/pkg/controller/duros"
+	"github.com/metal-stack/gardener-extension-duros/pkg/controller/healthcheck"
 
 	controllercmd "github.com/gardener/gardener/extensions/pkg/controller/cmd"
 	"github.com/gardener/gardener/extensions/pkg/util"
@@ -172,6 +173,10 @@ func (options *Options) run(ctx context.Context) error {
 		return fmt.Errorf("could not add health check to manager: %w", err)
 	}
 	log.Info("added healthzcheck")
+
+	if err := healthcheck.AddToManager(ctx, mgr); err != nil {
+		return fmt.Errorf("could not add health check controller to manager: %w", err)
+	}
 
 	if err := mgr.Start(ctx); err != nil {
 		return fmt.Errorf("error running manager: %w", err)

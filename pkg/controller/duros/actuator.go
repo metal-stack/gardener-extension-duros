@@ -23,6 +23,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/metal-stack/gardener-extension-duros/pkg/apis/config"
 	"github.com/metal-stack/gardener-extension-duros/pkg/apis/duros/v1alpha1"
+	"github.com/metal-stack/gardener-extension-duros/pkg/constants"
 	"github.com/metal-stack/gardener-extension-duros/pkg/imagevector"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -196,6 +197,8 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, ex *extension
 
 // Delete the Extension resource.
 func (a *actuator) Delete(ctx context.Context, log logr.Logger, ex *extensionsv1alpha1.Extension) error {
+	log.Info("deleting duros managed resource")
+
 	err := deleteDurosCustomResource(ctx, a.client, ex.Namespace)
 	if err != nil {
 		return &reconciler.RequeueAfterError{
@@ -203,14 +206,38 @@ func (a *actuator) Delete(ctx context.Context, log logr.Logger, ex *extensionsv1
 			RequeueAfter: 30 * time.Second,
 		}
 	}
+
+	log.Info("deleting shoot managed resource")
+
+	err = managedresources.DeleteForShoot(ctx, a.client, ex.Namespace, v1alpha1.ShootDurosResourceName)
+	if err != nil {
+		return err
+	}
+
+	timeoutCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	defer cancel()
+
+	err = managedresources.WaitUntilDeleted(timeoutCtx, a.client, ex.Namespace, v1alpha1.ShootDurosResourceName)
+	if err != nil {
+		return err
+	}
+
+	log.Info("deleting seed managed resource")
+
 	err = managedresources.DeleteForSeed(ctx, a.client, ex.Namespace, v1alpha1.SeedDurosControllerResourceName)
 	if err != nil {
 		return err
 	}
-	err = managedresources.DeleteForShoot(ctx, a.client, shootNamespace, v1alpha1.ShootDurosResourceName)
+
+	timeoutCtx2, cancel2 := context.WithTimeout(ctx, 2*time.Minute)
+	defer cancel2()
+
+	err = managedresources.WaitUntilDeleted(timeoutCtx2, a.client, ex.Namespace, v1alpha1.SeedDurosControllerResourceName)
 	if err != nil {
 		return err
 	}
+
+	log.Info("successfully deleted managed resources")
 
 	return nil
 }
@@ -223,12 +250,12 @@ func deleteDurosCustomResource(ctx context.Context, c client.Client, namespace s
 		},
 	}
 	err := c.Get(ctx, client.ObjectKeyFromObject(&durosResource), &durosResource)
-	if err != nil && !apierrors.IsNotFound(err) {
-		return nil
-	}
-
 	if err != nil {
-		return fmt.Errorf("unable to get duros-CR: %w", err)
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+
+		return fmt.Errorf("unable to get duros cr: %w", err)
 	}
 
 	if !durosResource.DeletionTimestamp.IsZero() {
@@ -237,10 +264,10 @@ func deleteDurosCustomResource(ctx context.Context, c client.Client, namespace s
 
 	err = managedresources.DeleteForSeed(ctx, c, namespace, v1alpha1.SeedDurosResourceName)
 	if err != nil {
-		return fmt.Errorf("unable to delete duros-CR: %w", err)
+		return fmt.Errorf("unable to delete duros managed resource: %w", err)
 	}
 
-	return fmt.Errorf("initializing deletion process of duros-CR, requeue")
+	return fmt.Errorf("initializing deletion process of duros cr, requeue")
 
 }
 
@@ -544,7 +571,7 @@ func (a *actuator) getSeedDurosObject(durosCfg *v1alpha1.DurosConfig, regionCfg 
 
 	durosStorage := durosv1.Duros{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "shoot-default-storage",
+			Name:      constants.DurosResourceName,
 			Namespace: namespace,
 		},
 		Spec: durosv1.DurosSpec{
